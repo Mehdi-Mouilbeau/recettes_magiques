@@ -1,0 +1,41 @@
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "recette-magique-7de15",
+          "appId": "1:65125955362:android:a568a6e324e439cf2d577b",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "recette-magique-7de15",
+          "configurations": {
+            "android": "1:65125955362:android:a568a6e324e439cf2d577b",
+            "ios": "1:65125955362:ios:1c2fc1c5c3c9ae6b2d577b",
+            "web": "1:65125955362:web:93925971802530172d577b"
+          }
+        }
+      }
+    }
+  },
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "disallowLegacyRuntimeConfig": true,
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log",
+        "*.local"
+      ]
+    }
+  ]
+}
