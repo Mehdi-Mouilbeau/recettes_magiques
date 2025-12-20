@@ -29,6 +29,22 @@ class _ScanScreenState extends State<ScanScreen> {
   bool _isProcessing = false;
   String _processingStep = '';
 
+  int? _extractServings(Map<String, dynamic> data) {
+    try {
+      final keys = ['servings', 'persons', 'nbPersons', 'people', 'portions'];
+      for (final k in keys) {
+        if (data.containsKey(k) && data[k] != null) {
+          final v = data[k];
+          if (v is int) return v;
+          if (v is double) return v.round();
+          final m = RegExp(r'(\d+)').firstMatch(v.toString());
+          if (m != null) return int.parse(m.group(1)!);
+        }
+      }
+    } catch (_) {}
+    return null;
+  }
+
   @override
   void dispose() {
     _ocrService.dispose();
@@ -112,6 +128,7 @@ class _ScanScreenState extends State<ScanScreen> {
         tags: List<String>.from(aiResponse['tags'] as List),
         source: aiResponse['source'] as String,
         estimatedTime: aiResponse['estimatedTime'] as String,
+        servings: _extractServings(aiResponse),
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
       );

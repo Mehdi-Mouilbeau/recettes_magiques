@@ -3,6 +3,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
 import 'package:recette_magique/providers/auth_provider.dart';
 import 'package:recette_magique/providers/recipe_provider.dart';
+import 'package:recette_magique/providers/leftovers_provider.dart';
 import 'package:recette_magique/services/backend_config.dart';
 import 'package:recette_magique/firebase_options.dart';
 import 'theme.dart';
@@ -36,6 +37,7 @@ class MyApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => RecipeProvider()),
+        ChangeNotifierProvider(create: (_) => LeftoversProvider()),
       ],
       child: MaterialApp.router(
         title: 'Recette Magique',

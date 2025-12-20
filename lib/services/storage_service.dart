@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
+import 'dart:typed_data';
 
 /// Service de stockage Firebase Storage
 /// Gère l'upload des images de recettes
@@ -48,6 +49,28 @@ class StorageService {
       debugPrint('Image supprimée: $imageUrl');
     } catch (e) {
       debugPrint('Erreur suppression image: $e');
+    }
+  }
+
+  /// Upload image bytes (e.g., AI-generated) and return download URL
+  Future<String?> uploadRecipeImageBytes({
+    required Uint8List bytes,
+    required String userId,
+    required String recipeId,
+    String fileName = 'ai.png',
+    String contentType = 'image/png',
+  }) async {
+    try {
+      final path = 'recipes/$userId/$recipeId/$fileName';
+      final ref = _storage.ref().child(path);
+      final metadata = SettableMetadata(contentType: contentType);
+      final uploadTask = await ref.putData(bytes, metadata);
+      final url = await uploadTask.ref.getDownloadURL();
+      debugPrint('AI image uploaded: $url');
+      return url;
+    } catch (e) {
+      debugPrint('Erreur upload image bytes: $e');
+      return null;
     }
   }
 

@@ -3,14 +3,13 @@ const { defineSecret } = require("firebase-functions/params");
 const logger = require("firebase-functions/logger");
 const { GoogleGenAI } = require("@google/genai");
 
-// ✅ Secret (remplace functions.config(), compatible après 2026)
 const GEMINI_API_KEY = defineSecret("GEMINI_API_KEY");
 
 exports.processRecipe = onRequest(
   {
-    region: "europe-west1", // tu peux laisser, ou mettre us-central1
+    region: "europe-west1", 
     secrets: [GEMINI_API_KEY],
-    cors: true, // gère OPTIONS automatiquement
+    cors: true,
   },
   async (req, res) => {
     try {
@@ -72,6 +71,93 @@ Texte OCR:
       logger.error(err);
       return res.status(500).json({
         error: "AI processing failed",
+        details: String(err?.message || err),
+      });
+    }
+  }
+);
+
+// Génération d'image de recette avec Imagen via Gemini API (REST predict)
+exports.generateRecipeImage = onRequest(
+  {
+    region: "europe-west1",
+    secrets: [GEMINI_API_KEY],
+    cors: true,
+    timeoutSeconds: 60,
+  },
+  async (req, res) => {
+    try {
+      if (req.method !== "POST") {
+        return res.status(405).json({ error: "Use POST" });
+      }
+
+      const { title, category, ingredients } = req.body || {};
+      if (!title || typeof title !== "string") {
+        return res.status(400).json({ error: "Missing 'title'" });
+      }
+
+      const ing = Array.isArray(ingredients)
+        ? ingredients.map((x) => String(x || "").trim()).filter(Boolean).slice(0, 6)
+        : [];
+
+      const promptText = [
+        `High quality food photography of a dish for a recipe named "${title.trim()}".`,
+        category ? `Course type: ${String(category).toLowerCase()}.` : "",
+        ing.length ? `Ingredients focus: ${ing.join(", ")}.` : "",
+        "Natural light, appetizing styling, clean neutral background, shallow depth of field.",
+        "No text, no logos, no branding, no hands, no people.",
+      ]
+        .filter(Boolean)
+        .join(" ");
+
+      // ✅ Endpoint correct (predict)
+      const model = "imagen-4.0-generate-001";
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:predict`;
+
+      const payload = {
+        instances: [{ prompt: promptText }],
+        parameters: {
+          sampleCount: 1,
+          aspectRatio: "1:1",
+        },
+      };
+
+      const resp = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": GEMINI_API_KEY.value(),
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const raw = await resp.text();
+      if (!resp.ok) {
+        logger.error("Imagen predict failed:", resp.status, raw);
+        return res.status(500).json({
+          error: "Image generation failed",
+          details: raw || `HTTP ${resp.status}`,
+        });
+      }
+
+      const data = raw ? JSON.parse(raw) : {};
+      const pred = data?.predictions?.[0];
+      const b64 = pred?.bytesBase64Encoded;
+
+      if (!b64) {
+        logger.error("No bytesBase64Encoded in response:", data);
+        return res.status(500).json({ error: "No image in response", details: raw });
+      }
+
+      // On renvoie une clé "b64" simple côté Flutter
+      return res.status(200).json({
+        mimeType: "image/png",
+        b64,
+      });
+    } catch (err) {
+      logger.error(err);
+      return res.status(500).json({
+        error: "Image generation exception",
         details: String(err?.message || err),
       });
     }

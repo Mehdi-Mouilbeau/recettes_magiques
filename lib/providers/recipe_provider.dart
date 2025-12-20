@@ -4,6 +4,8 @@ import 'package:recette_magique/models/recipe_model.dart';
 import 'package:recette_magique/services/recipe_service.dart';
 import 'package:recette_magique/services/storage_service.dart';
 import 'package:recette_magique/services/backend_config.dart';
+import 'package:recette_magique/services/gemini_image_service.dart';
+import 'dart:typed_data';
 
 /// Provider pour gérer l'état des recettes
 class RecipeProvider extends ChangeNotifier {
@@ -70,6 +72,8 @@ class RecipeProvider extends ChangeNotifier {
   }
 
   /// Créer une nouvelle recette
+  /// imagePath (scan source) is ignored now to avoid storing copyrighted scans.
+  /// We instead generate an AI image and save it as imageUrl.
   Future<bool> createRecipe(Recipe recipe, String? imagePath) async {
     if (!BackendConfig.firebaseReady) {
       _errorMessage = 'Backend non configuré. Connectez Firebase via le panneau Dreamflow.';
@@ -90,22 +94,32 @@ class RecipeProvider extends ChangeNotifier {
         return false;
       }
 
-      // Uploader l'image si présente
-      if (imagePath != null) {
-        final imageUrl = await _storageService.uploadRecipeImage(
-          imagePath: imagePath,
-          userId: recipe.userId,
-          recipeId: recipeId,
+      // Générer une image via Gemini (pas d'upload de l'image scannée)
+      try {
+        final bytes = await GeminiImages.generateRecipeImage(
+          title: recipe.title,
+          category: recipe.category.displayName,
+          keyIngredients: recipe.ingredients,
         );
 
-        // Mettre à jour la recette avec l'URL de l'image
-        if (imageUrl != null) {
-          final updatedRecipe = recipe.copyWith(
-            id: recipeId,
-            scannedImageUrl: imageUrl,
+        if (bytes != null) {
+          final aiUrl = await _storageService.uploadRecipeImageBytes(
+            bytes: bytes,
+            userId: recipe.userId,
+            recipeId: recipeId,
+            fileName: 'ai.png',
+            contentType: 'image/png',
           );
-          await _recipeService.updateRecipe(updatedRecipe);
+          if (aiUrl != null) {
+            final updatedRecipe = recipe.copyWith(
+              id: recipeId,
+              imageUrl: aiUrl,
+            );
+            await _recipeService.updateRecipe(updatedRecipe);
+          }
         }
+      } catch (e) {
+        debugPrint('AI image generation/upload failed: $e');
       }
 
       _isLoading = false;
@@ -190,6 +204,7 @@ class RecipeProvider extends ChangeNotifier {
 
   /// Rechercher des recettes
   Future<void> searchRecipes(String userId, String query) async {
+    _recipesSub?.cancel();
     if (query.isEmpty) {
       loadUserRecipes(userId);
       return;
@@ -204,6 +219,29 @@ class RecipeProvider extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       _errorMessage = 'Erreur lors de la recherche';
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  /// Rechercher par liste d'ingrédients disponibles (ex: "tomate, carotte")
+  Future<void> searchByIngredients(String userId, List<String> ingredients) async {
+    _recipesSub?.cancel();
+    if (ingredients.isEmpty) {
+      loadUserRecipes(userId);
+      return;
+    }
+
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      _recipes = await _recipeService.searchByIngredients(userId, ingredients);
+      _isLoading = false;
+      _errorMessage = null;
+      notifyListeners();
+    } catch (e) {
+      _errorMessage = 'Erreur lors de la recherche par ingrédients';
       _isLoading = false;
       notifyListeners();
     }

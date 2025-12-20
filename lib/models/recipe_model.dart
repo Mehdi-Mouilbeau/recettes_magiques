@@ -43,6 +43,8 @@ class Recipe {
   final String? imageUrl;
   final String? scannedImageUrl;
   final bool isFavorite;
+  /// Nombre de personnes/portions pour les quantités d'ingrédients
+  final int? servings;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -59,6 +61,7 @@ class Recipe {
     this.imageUrl,
     this.scannedImageUrl,
     this.isFavorite = false,
+    this.servings,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -76,6 +79,7 @@ class Recipe {
     'imageUrl': imageUrl,
     'scannedImageUrl': scannedImageUrl,
     'favorite': isFavorite,
+    if (servings != null) 'servings': servings,
     'createdAt': Timestamp.fromDate(createdAt),
     'updatedAt': Timestamp.fromDate(updatedAt),
   };
@@ -94,6 +98,7 @@ class Recipe {
     imageUrl: json['imageUrl'] as String?,
     scannedImageUrl: json['scannedImageUrl'] as String?,
     isFavorite: (json['favorite'] ?? json['isFavorite'] ?? false) as bool,
+    servings: _parseServings(json['servings'] ?? json['persons'] ?? json['serves']),
     createdAt: _parseDate(json['createdAt']),
     updatedAt: _parseDate(json['updatedAt']),
   );
@@ -112,6 +117,7 @@ class Recipe {
     String? imageUrl,
     String? scannedImageUrl,
     bool? isFavorite,
+    int? servings,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) => Recipe(
@@ -127,6 +133,7 @@ class Recipe {
     imageUrl: imageUrl ?? this.imageUrl,
     scannedImageUrl: scannedImageUrl ?? this.scannedImageUrl,
     isFavorite: isFavorite ?? this.isFavorite,
+    servings: servings ?? this.servings,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
   );
@@ -169,5 +176,20 @@ class Recipe {
     if (v == 'boisson' || v == 'boissons' || v == 'drink') return RecipeCategory.boisson;
     // Fallback sur enum names
     return RecipeCategory.fromString(v);
+  }
+
+  /// Essaie d'extraire un entier pour les portions
+  static int? _parseServings(dynamic value) {
+    if (value == null) return null;
+    try {
+      if (value is int) return value;
+      if (value is double) return value.round();
+      final s = value.toString();
+      final match = RegExp(r"(\d+)").firstMatch(s);
+      if (match != null) {
+        return int.parse(match.group(1)!);
+      }
+    } catch (_) {}
+    return null;
   }
 }

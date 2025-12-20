@@ -136,4 +136,51 @@ class RecipeService {
       return false;
     }
   }
+
+  /// Recherche naïve par ingrédients disponibles (filtrage côté client)
+  Future<List<Recipe>> searchByIngredients(String userId, List<String> rawIngredients) async {
+    try {
+      final snapshot = await _recipesCollection.where('userId', isEqualTo: userId).get();
+      final all = snapshot.docs
+          .map((doc) => Recipe.fromJson(doc.data() as Map<String, dynamic>, doc.id))
+          .toList();
+
+      final tokens = _normalizeList(rawIngredients);
+      if (tokens.isEmpty) return all;
+
+      List<MapEntry<Recipe, int>> scored = [];
+      for (final r in all) {
+        final joined = r.ingredients.map((e) => _normalize(e)).join(' \n ');
+        int score = 0;
+        for (final t in tokens) {
+          if (t.isEmpty) continue;
+          if (joined.contains(t)) score++;
+        }
+        if (score > 0) scored.add(MapEntry(r, score));
+      }
+      scored.sort((a, b) => b.value.compareTo(a.value));
+      return scored.map((e) => e.key).toList();
+    } catch (e) {
+      debugPrint('Erreur recherche par ingrédients: $e');
+      return [];
+    }
+  }
+
+  static List<String> _normalizeList(List<String> list) =>
+      list.map((e) => _normalize(e)).where((e) => e.isNotEmpty).toList();
+
+  /// Normalisation basique: minuscule, accents retirés, espaces compressés
+  static String _normalize(String input) {
+    final lower = input.toLowerCase().trim();
+    final deacc = lower
+        .replaceAll(RegExp('[àáâäãå]'), 'a')
+        .replaceAll(RegExp('[ç]'), 'c')
+        .replaceAll(RegExp('[èéêë]'), 'e')
+        .replaceAll(RegExp('[ìíîï]'), 'i')
+        .replaceAll(RegExp('[ñ]'), 'n')
+        .replaceAll(RegExp('[òóôöõ]'), 'o')
+        .replaceAll(RegExp('[ùúûü]'), 'u')
+        .replaceAll(RegExp('[ýÿ]'), 'y');
+    return deacc.replaceAll(RegExp('\n+'), ' ').replaceAll(RegExp('\s+'), ' ');
+  }
 }

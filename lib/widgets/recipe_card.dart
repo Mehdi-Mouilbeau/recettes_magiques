@@ -31,6 +31,8 @@ class RecipeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final categoryColor = _getCategoryColor();
+
     return Card(
       margin: const EdgeInsets.only(bottom: AppSpacing.md),
       child: InkWell(
@@ -38,122 +40,146 @@ class RecipeCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppRadius.md),
         child: Padding(
           padding: AppSpacing.paddingMd,
-          child: Row(
-            children: [
-              // Image de la recette
-              ClipRRect(
-                borderRadius: BorderRadius.circular(AppRadius.sm),
-                child: recipe.scannedImageUrl != null
-                    ? CachedNetworkImage(
-                        imageUrl: recipe.scannedImageUrl!,
-                        width: 80,
-                        height: 80,
-                        fit: BoxFit.cover,
-                        placeholder: (context, url) => Container(
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // ───────────────── IMAGE ─────────────────
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(AppRadius.sm),
+                  child: (recipe.imageUrl ?? recipe.scannedImageUrl) != null
+                      ? CachedNetworkImage(
+                          imageUrl:
+                              (recipe.imageUrl ?? recipe.scannedImageUrl)!,
                           width: 80,
                           height: 80,
-                          color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                        ),
-                        errorWidget: (context, url, error) => Container(
+                          fit: BoxFit.cover,
+                          placeholder: (context, url) => Container(
+                            width: 80,
+                            height: 80,
+                            color: Theme.of(context)
+                                .colorScheme
+                                .surfaceContainerHighest,
+                          ),
+                          errorWidget: (context, url, error) => Container(
+                            width: 80,
+                            height: 80,
+                            color: Theme.of(context)
+                                .colorScheme
+                                .surfaceContainerHighest,
+                            child: const Icon(Icons.restaurant_menu),
+                          ),
+                        )
+                      : Container(
                           width: 80,
                           height: 80,
-                          color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                          child: const Icon(Icons.restaurant_menu),
-                        ),
-                      )
-                    : Container(
-                        width: 80,
-                        height: 80,
-                        color: _getCategoryColor().withValues(alpha: 0.2),
-                        child: Center(
+                          color: categoryColor.withValues(alpha: 0.2),
+                          alignment: Alignment.center,
                           child: Text(
                             recipe.category.displayName[0],
-                            style: context.textStyles.headlineMedium?.bold.withColor(
-                              _getCategoryColor(),
-                            ),
+                            style: context.textStyles.headlineMedium?.bold
+                                .withColor(categoryColor),
                           ),
                         ),
-                      ),
-              ),
-              const SizedBox(width: AppSpacing.md),
+                ),
 
-              // Informations
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      recipe.title,
-                      style: context.textStyles.titleMedium?.bold,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: AppSpacing.xs),
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: AppSpacing.sm,
-                            vertical: 2,
+                const SizedBox(width: AppSpacing.md),
+
+                // ───────────────── TEXTE ─────────────────
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Titre
+                      Text(
+                        recipe.title,
+                        style: context.textStyles.titleMedium?.bold,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+
+                      const SizedBox(height: AppSpacing.xs),
+
+                      // Ligne 1 : catégorie (chip)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.sm,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: categoryColor.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(AppRadius.sm),
+                        ),
+                        child: Text(
+                          recipe.category.displayName,
+                          style: context.textStyles.labelSmall
+                              ?.withColor(categoryColor),
+                        ),
+                      ),
+
+                      const SizedBox(height: AppSpacing.xs),
+
+                      // Ligne 2 : durée
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.schedule_outlined,
+                            size: 14,
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
                           ),
-                          decoration: BoxDecoration(
-                            color: _getCategoryColor().withValues(alpha: 0.2),
-                            borderRadius: BorderRadius.circular(AppRadius.sm),
-                          ),
-                          child: Text(
-                            recipe.category.displayName,
-                            style: context.textStyles.labelSmall?.withColor(
-                              _getCategoryColor(),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              recipe.estimatedTime,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: context.textStyles.labelSmall?.withColor(
+                                Theme.of(context).colorScheme.onSurfaceVariant,
+                              ),
                             ),
                           ),
-                        ),
-                        const SizedBox(width: AppSpacing.sm),
-                        Icon(
-                          Icons.schedule_outlined,
-                          size: 14,
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          recipe.estimatedTime,
-                          style: context.textStyles.labelSmall?.withColor(
-                            Theme.of(context).colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: AppSpacing.xs),
-                    Text(
-                      '${recipe.ingredients.length} ingrédients',
-                      style: context.textStyles.bodySmall?.withColor(
-                        Theme.of(context).colorScheme.onSurfaceVariant,
+                        ],
                       ),
+
+                      const SizedBox(height: AppSpacing.xs),
+
+                      // Ingrédients
+                      Text(
+                        '${recipe.ingredients.length} ingrédients',
+                        style: context.textStyles.bodySmall?.withColor(
+                          Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // ───────────────── ACTIONS ─────────────────
+                Column(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    IconButton(
+                      tooltip: recipe.isFavorite
+                          ? 'Retirer des favoris'
+                          : 'Ajouter aux favoris',
+                      onPressed: () =>
+                          context.read<RecipeProvider>().toggleFavorite(recipe),
+                      icon: Icon(
+                        recipe.isFavorite ? Icons.star : Icons.star_outline,
+                        color: recipe.isFavorite
+                            ? Theme.of(context).colorScheme.tertiary
+                            : Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    Icon(
+                      Icons.chevron_right,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
                   ],
                 ),
-              ),
-
-              // Actions
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    tooltip: recipe.isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris',
-                    onPressed: () => context.read<RecipeProvider>().toggleFavorite(recipe),
-                    icon: Icon(
-                      recipe.isFavorite ? Icons.star : Icons.star_outline,
-                      color: recipe.isFavorite
-                          ? Theme.of(context).colorScheme.tertiary
-                          : Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  Icon(
-                    Icons.chevron_right,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ],
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

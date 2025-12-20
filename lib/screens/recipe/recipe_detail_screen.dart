@@ -7,10 +7,23 @@ import 'package:recette_magique/providers/recipe_provider.dart';
 import 'package:recette_magique/theme.dart';
 
 /// Écran de détail d'une recette
-class RecipeDetailScreen extends StatelessWidget {
+class RecipeDetailScreen extends StatefulWidget {
   final Recipe recipe;
 
   const RecipeDetailScreen({super.key, required this.recipe});
+
+  @override
+  State<RecipeDetailScreen> createState() => _RecipeDetailScreenState();
+}
+
+class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
+  late int _people;
+
+  @override
+  void initState() {
+    super.initState();
+    _people = (widget.recipe.servings ?? 4).clamp(1, 24);
+  }
 
   Future<void> _deleteRecipe(BuildContext context) async {
     final confirmed = await showDialog<bool>(
@@ -36,7 +49,7 @@ class RecipeDetailScreen extends StatelessWidget {
 
     if (confirmed == true && context.mounted) {
       final recipeProvider = context.read<RecipeProvider>();
-      final success = await recipeProvider.deleteRecipe(recipe);
+      final success = await recipeProvider.deleteRecipe(widget.recipe);
 
       if (success && context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -49,6 +62,7 @@ class RecipeDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final recipe = widget.recipe;
     return Scaffold(
       body: CustomScrollView(
         slivers: [
@@ -57,9 +71,9 @@ class RecipeDetailScreen extends StatelessWidget {
             expandedHeight: 250,
             pinned: true,
             flexibleSpace: FlexibleSpaceBar(
-              background: recipe.scannedImageUrl != null
+              background: (recipe.imageUrl ?? recipe.scannedImageUrl) != null
                   ? CachedNetworkImage(
-                      imageUrl: recipe.scannedImageUrl!,
+                      imageUrl: (recipe.imageUrl ?? recipe.scannedImageUrl)!,
                       fit: BoxFit.cover,
                       placeholder: (context, url) => Container(
                         color: Theme.of(context).colorScheme.surfaceContainerHighest,
@@ -144,53 +158,68 @@ class RecipeDetailScreen extends StatelessWidget {
                     Wrap(
                       spacing: AppSpacing.sm,
                       runSpacing: AppSpacing.sm,
-                      children: recipe.tags.map((tag) => Chip(
-                        label: Text(tag, style: context.textStyles.labelSmall),
-                        padding: EdgeInsets.zero,
-                      )).toList(),
+                      children: recipe.tags
+                          .map((tag) => Chip(
+                                label: Text(tag, style: context.textStyles.labelSmall),
+                                padding: EdgeInsets.zero,
+                              ))
+                          .toList(),
                     ),
                   ],
 
                   const SizedBox(height: AppSpacing.xl),
 
-                  // Ingrédients
-                  Text(
-                    'Ingrédients',
-                    style: context.textStyles.titleLarge?.bold,
+                  // Sélecteur de personnes
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.people_alt_outlined,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      Text('Personnes', style: context.textStyles.titleMedium?.semiBold),
+                      const Spacer(),
+                      _PeopleCounter(
+                        value: _people,
+                        onChanged: (v) => setState(() => _people = v.clamp(1, 24)),
+                      ),
+                    ],
                   ),
+
+                  const SizedBox(height: AppSpacing.lg),
+
+                  // Ingrédients
+                  Text('Ingrédients', style: context.textStyles.titleLarge?.bold),
                   const SizedBox(height: AppSpacing.md),
                   ...recipe.ingredients.map((ingredient) => Padding(
-                    padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          margin: const EdgeInsets.only(top: 8),
-                          width: 6,
-                          height: 6,
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.primary,
-                            shape: BoxShape.circle,
-                          ),
+                        padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              margin: const EdgeInsets.only(top: 8),
+                              width: 6,
+                              height: 6,
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).colorScheme.primary,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: AppSpacing.md),
+                            Expanded(
+                              child: Text(
+                                _scaleIngredientLine(ingredient, (widget.recipe.servings ?? 4), _people),
+                                style: context.textStyles.bodyLarge,
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: AppSpacing.md),
-                        Expanded(
-                          child: Text(
-                            ingredient,
-                            style: context.textStyles.bodyLarge,
-                          ),
-                        ),
-                      ],
-                    ),
-                  )),
+                      )),
 
                   const SizedBox(height: AppSpacing.xl),
 
                   // Étapes
-                  Text(
-                    'Préparation',
-                    style: context.textStyles.titleLarge?.bold,
-                  ),
+                  Text('Préparation', style: context.textStyles.titleLarge?.bold),
                   const SizedBox(height: AppSpacing.md),
                   ...recipe.steps.asMap().entries.map((entry) {
                     final index = entry.key;
@@ -211,18 +240,13 @@ class RecipeDetailScreen extends StatelessWidget {
                               child: Text(
                                 '${index + 1}',
                                 style: context.textStyles.labelLarge?.bold.withColor(
-                                  Theme.of(context).colorScheme.onPrimary,
-                                ),
+                                      Theme.of(context).colorScheme.onPrimary,
+                                    ),
                               ),
                             ),
                           ),
                           const SizedBox(width: AppSpacing.md),
-                          Expanded(
-                            child: Text(
-                              step,
-                              style: context.textStyles.bodyLarge,
-                            ),
-                          ),
+                          Expanded(child: Text(step, style: context.textStyles.bodyLarge)),
                         ],
                       ),
                     );
@@ -237,9 +261,7 @@ class RecipeDetailScreen extends StatelessWidget {
                     label: const Text('Supprimer cette recette'),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Theme.of(context).colorScheme.error,
-                      side: BorderSide(
-                        color: Theme.of(context).colorScheme.error,
-                      ),
+                      side: BorderSide(color: Theme.of(context).colorScheme.error),
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(AppRadius.md),
@@ -255,6 +277,51 @@ class RecipeDetailScreen extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  // Met à l'échelle la 1ère quantité trouvée dans la ligne d'ingrédient
+  String _scaleIngredientLine(String line, int basePeople, int targetPeople) {
+    final ratio = targetPeople / (basePeople <= 0 ? 1 : basePeople);
+    if (ratio == 1) return line;
+
+    // Gère fractions (1/2), nombres décimaux (1.5) et entiers
+    final fractionRegex = RegExp(r'(\d+)\s*/\s*(\d+)');
+    final numberRegex = RegExp(r'(\d+[\.,]?\d*)');
+
+    String updated = line;
+
+    // Priorité: fraction explicite
+    final fMatch = fractionRegex.firstMatch(line);
+    if (fMatch != null) {
+      final num = double.parse(fMatch.group(1)!);
+      final den = double.parse(fMatch.group(2)!);
+      final val = (num / den) * ratio;
+      final repl = _formatNumber(val);
+      return updated.replaceFirst(fMatch.group(0)!, repl);
+    }
+
+    // Sinon 1er nombre trouvé
+    final nMatch = numberRegex.firstMatch(line);
+    if (nMatch != null) {
+      final raw = nMatch.group(1)!.replaceAll(',', '.');
+      final val = double.tryParse(raw);
+      if (val != null) {
+        final scaled = val * ratio;
+        final repl = _formatNumber(scaled);
+        updated = updated.replaceFirst(nMatch.group(0)!, repl);
+      }
+    }
+    return updated;
+  }
+
+  String _formatNumber(double v) {
+    // Arrondi au 0.5 le plus proche
+    final half = (v * 2).round() / 2.0;
+    if ((half - half.round()).abs() < 0.001) {
+      return half.round().toString();
+    }
+    // remplacer point par virgule pour FR
+    return half.toStringAsFixed(1).replaceAll('.', ',');
   }
 }
 
@@ -293,6 +360,40 @@ class _CategoryChip extends StatelessWidget {
         style: context.textStyles.labelMedium?.bold.withColor(
           _getCategoryColor(context),
         ),
+      ),
+    );
+  }
+}
+
+class _PeopleCounter extends StatelessWidget {
+  final int value;
+  final ValueChanged<int> onChanged;
+
+  const _PeopleCounter({required this.value, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            onPressed: value > 1 ? () => onChanged(value - 1) : null,
+            icon: const Icon(Icons.remove_circle_outline, color: Colors.orange),
+            tooltip: 'Moins',
+          ),
+          Text('$value', style: context.textStyles.titleMedium?.bold),
+          IconButton(
+            onPressed: value < 24 ? () => onChanged(value + 1) : null,
+            icon: const Icon(Icons.add_circle_outline, color: Colors.green),
+            tooltip: 'Plus',
+          ),
+        ],
       ),
     );
   }
