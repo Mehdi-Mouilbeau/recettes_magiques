@@ -25,6 +25,7 @@ class CategoryFilter extends StatelessWidget {
   Widget build(BuildContext context) {
     final recipeProvider = context.watch<RecipeProvider>();
     final selectedCategory = recipeProvider.selectedCategory;
+    final favoritesOnly = recipeProvider.favoritesOnly;
 
     return Container(
       padding: AppSpacing.verticalMd,
@@ -38,6 +39,14 @@ class CategoryFilter extends StatelessWidget {
               label: 'Toutes',
               isSelected: selectedCategory == null,
               onTap: () => recipeProvider.filterByCategory(null),
+            ),
+            const SizedBox(width: AppSpacing.sm),
+
+            // Bouton Favoris
+            _FilterChip(
+              label: '⭐ Favoris',
+              isSelected: favoritesOnly,
+              onTap: () => recipeProvider.setFavoritesOnly(!favoritesOnly),
             ),
             const SizedBox(width: AppSpacing.sm),
 

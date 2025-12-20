@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'package:recette_magique/models/recipe_model.dart';
 import 'package:recette_magique/services/recipe_service.dart';
 import 'package:recette_magique/services/storage_service.dart';
@@ -13,18 +14,25 @@ class RecipeProvider extends ChangeNotifier {
   RecipeCategory? _selectedCategory;
   bool _isLoading = false;
   String? _errorMessage;
+  bool _favoritesOnly = false;
+  StreamSubscription<List<Recipe>>? _recipesSub;
 
   List<Recipe> get recipes => _recipes;
   RecipeCategory? get selectedCategory => _selectedCategory;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
+  bool get favoritesOnly => _favoritesOnly;
 
   /// Récupérer les recettes filtrées
   List<Recipe> get filteredRecipes {
-    if (_selectedCategory == null) {
-      return _recipes;
+    Iterable<Recipe> list = _recipes;
+    if (_selectedCategory != null) {
+      list = list.where((r) => r.category == _selectedCategory);
     }
-    return _recipes.where((r) => r.category == _selectedCategory).toList();
+    if (_favoritesOnly) {
+      list = list.where((r) => r.isFavorite);
+    }
+    return list.toList();
   }
 
   /// Charger les recettes de l'utilisateur
@@ -34,15 +42,30 @@ class RecipeProvider extends ChangeNotifier {
       notifyListeners();
       return;
     }
-    _recipeService.getUserRecipes(userId).listen((recipes) {
-      _recipes = recipes;
-      notifyListeners();
-    });
+    _recipesSub?.cancel();
+    _recipesSub = _recipeService.getUserRecipes(userId).listen(
+      (recipes) {
+        _recipes = recipes;
+        _errorMessage = null;
+        notifyListeners();
+      },
+      onError: (e) {
+        // Souvent dû à un index composite manquant
+        _errorMessage = "Impossible de charger les recettes. Vérifiez l'index Firestore (userId + createdAt).";
+        notifyListeners();
+      },
+    );
   }
 
   /// Filtrer par catégorie
   void filterByCategory(RecipeCategory? category) {
     _selectedCategory = category;
+    notifyListeners();
+  }
+
+  /// Afficher uniquement les favoris
+  void setFavoritesOnly(bool value) {
+    _favoritesOnly = value;
     notifyListeners();
   }
 
@@ -150,6 +173,21 @@ class RecipeProvider extends ChangeNotifier {
     }
   }
 
+   /// Basculer favori pour une recette
+  Future<void> toggleFavorite(Recipe recipe) async {
+    if (!BackendConfig.firebaseReady || recipe.id == null) return;
+    final newValue = !recipe.isFavorite;
+    final success = await _recipeService.setFavorite(recipeId: recipe.id!, value: newValue);
+    if (success) {
+      // Mettre à jour localement pour un retour instantané
+      final idx = _recipes.indexWhere((r) => r.id == recipe.id);
+      if (idx != -1) {
+        _recipes[idx] = _recipes[idx].copyWith(isFavorite: newValue);
+        notifyListeners();
+      }
+    }
+  }
+
   /// Rechercher des recettes
   Future<void> searchRecipes(String userId, String query) async {
     if (query.isEmpty) {
@@ -175,5 +213,11 @@ class RecipeProvider extends ChangeNotifier {
   void clearError() {
     _errorMessage = null;
     notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _recipesSub?.cancel();
+    super.dispose();
   }
 }

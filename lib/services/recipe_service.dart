@@ -122,4 +122,18 @@ class RecipeService {
       return [];
     }
   }
+
+  /// Met à jour le statut favori d'une recette (pour son propriétaire)
+  Future<bool> setFavorite({required String recipeId, required bool value}) async {
+    try {
+      await _recipesCollection.doc(recipeId).update({
+        'favorite': value,
+        'updatedAt': Timestamp.fromDate(DateTime.now()),
+      });
+      return true;
+    } catch (e) {
+      debugPrint('Erreur mise à jour favori: $e');
+      return false;
+    }
+  }
 }

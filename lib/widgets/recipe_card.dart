@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:provider/provider.dart';
+import 'package:recette_magique/providers/recipe_provider.dart';
 import 'package:recette_magique/models/recipe_model.dart';
 import 'package:recette_magique/theme.dart';
 
@@ -131,10 +133,25 @@ class RecipeCard extends StatelessWidget {
                 ),
               ),
 
-              // Icône de navigation
-              Icon(
-                Icons.chevron_right,
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              // Actions
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    tooltip: recipe.isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris',
+                    onPressed: () => context.read<RecipeProvider>().toggleFavorite(recipe),
+                    icon: Icon(
+                      recipe.isFavorite ? Icons.star : Icons.star_outline,
+                      color: recipe.isFavorite
+                          ? Theme.of(context).colorScheme.tertiary
+                          : Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  Icon(
+                    Icons.chevron_right,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ],
               ),
             ],
           ),

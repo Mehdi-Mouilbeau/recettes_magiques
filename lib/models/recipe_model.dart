@@ -42,6 +42,7 @@ class Recipe {
   final String estimatedTime;
   final String? imageUrl;
   final String? scannedImageUrl;
+  final bool isFavorite;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -57,6 +58,7 @@ class Recipe {
     required this.estimatedTime,
     this.imageUrl,
     this.scannedImageUrl,
+    this.isFavorite = false,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -73,6 +75,7 @@ class Recipe {
     'estimatedTime': estimatedTime,
     'imageUrl': imageUrl,
     'scannedImageUrl': scannedImageUrl,
+    'favorite': isFavorite,
     'createdAt': Timestamp.fromDate(createdAt),
     'updatedAt': Timestamp.fromDate(updatedAt),
   };
@@ -80,18 +83,19 @@ class Recipe {
   /// Crée un modèle depuis les données Firestore
   factory Recipe.fromJson(Map<String, dynamic> json, String id) => Recipe(
     id: id,
-    userId: json['userId'] as String,
-    title: json['title'] as String,
-    category: RecipeCategory.fromString(json['category'] as String),
-    ingredients: List<String>.from(json['ingredients'] as List),
-    steps: List<String>.from(json['steps'] as List),
-    tags: List<String>.from(json['tags'] as List),
-    source: json['source'] as String,
-    estimatedTime: json['estimatedTime'] as String,
+    userId: (json['userId'] ?? '') as String,
+    title: (json['title'] ?? '') as String,
+    category: _parseCategory(json['category']),
+    ingredients: _parseStringList(json['ingredients']),
+    steps: _parseStringList(json['steps']),
+    tags: _parseStringList(json['tags']),
+    source: (json['source'] ?? '') as String,
+    estimatedTime: (json['estimatedTime'] ?? '') as String,
     imageUrl: json['imageUrl'] as String?,
     scannedImageUrl: json['scannedImageUrl'] as String?,
-    createdAt: (json['createdAt'] as Timestamp).toDate(),
-    updatedAt: (json['updatedAt'] as Timestamp).toDate(),
+    isFavorite: (json['favorite'] ?? json['isFavorite'] ?? false) as bool,
+    createdAt: _parseDate(json['createdAt']),
+    updatedAt: _parseDate(json['updatedAt']),
   );
 
   /// Crée une copie modifiée du modèle
@@ -107,6 +111,7 @@ class Recipe {
     String? estimatedTime,
     String? imageUrl,
     String? scannedImageUrl,
+    bool? isFavorite,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) => Recipe(
@@ -121,7 +126,48 @@ class Recipe {
     estimatedTime: estimatedTime ?? this.estimatedTime,
     imageUrl: imageUrl ?? this.imageUrl,
     scannedImageUrl: scannedImageUrl ?? this.scannedImageUrl,
+    isFavorite: isFavorite ?? this.isFavorite,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
   );
+
+  static DateTime _parseDate(dynamic value) {
+    if (value == null) return DateTime.fromMillisecondsSinceEpoch(0);
+    if (value is Timestamp) return value.toDate();
+    if (value is DateTime) return value;
+    if (value is int) return DateTime.fromMillisecondsSinceEpoch(value);
+    if (value is String) {
+      // Essayez ISO 8601, sinon retour epoch
+      try {
+        return DateTime.parse(value);
+      } catch (_) {
+        return DateTime.fromMillisecondsSinceEpoch(0);
+      }
+    }
+    return DateTime.fromMillisecondsSinceEpoch(0);
+  }
+
+  static List<String> _parseStringList(dynamic value) {
+    if (value == null) return <String>[];
+    if (value is List) {
+      return value.map((e) => e.toString()).toList();
+    }
+    // Si chaîne séparée par des virgules
+    if (value is String) {
+      return value.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+    }
+    return <String>[];
+  }
+
+  static RecipeCategory _parseCategory(dynamic value) {
+    if (value == null) return RecipeCategory.plat;
+    final v = value.toString().toLowerCase().trim();
+    // Gérer noms localisés
+    if (v == 'entrée' || v == 'entree') return RecipeCategory.entree;
+    if (v == 'plat' || v == 'plats') return RecipeCategory.plat;
+    if (v == 'dessert' || v == 'desserts') return RecipeCategory.dessert;
+    if (v == 'boisson' || v == 'boissons' || v == 'drink') return RecipeCategory.boisson;
+    // Fallback sur enum names
+    return RecipeCategory.fromString(v);
+  }
 }

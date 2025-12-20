@@ -17,10 +17,26 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  VoidCallback? _authStateListener;
   @override
   void initState() {
     super.initState();
-    _loadRecipes();
+    // Écoute les changements d'auth pour charger les recettes dynamiquement
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final authProvider = context.read<AuthProvider>();
+      final recipeProvider = context.read<RecipeProvider>();
+      _authStateListener = () {
+        final user = authProvider.currentUser;
+        if (user != null) {
+          recipeProvider.loadUserRecipes(user.uid);
+        }
+      };
+      authProvider.addListener(_authStateListener!);
+      // Chargement initial si déjà connecté
+      if (authProvider.currentUser != null) {
+        recipeProvider.loadUserRecipes(authProvider.currentUser!.uid);
+      }
+    });
   }
 
   void _loadRecipes() {
@@ -135,5 +151,15 @@ class _HomeScreenState extends State<HomeScreen> {
         );
       },
     );
+  }
+
+  @override
+  void dispose() {
+    final authProvider = context.read<AuthProvider>();
+    if (_authStateListener != null) {
+      authProvider.removeListener(_authStateListener!);
+      _authStateListener = null;
+    }
+    super.dispose();
   }
 }

@@ -86,22 +86,11 @@ class _ScanScreenState extends State<ScanScreen> {
         _processingStep = 'Traitement par l\'IA...';
       });
 
-      // // Étape 2: Traitement IA
-      // // NOTE: Utilisez mockProcessRecipeText pour les tests
-      // // Remplacez par processRecipeText une fois la Cloud Function configurée
-      // final aiResponse = await _aiService.mockProcessRecipeText(text);
-
-      // if (aiResponse == null) {
-      //   _showError('Erreur lors du traitement par l\'IA');
-      //   setState(() => _isProcessing = false);
-      //   return;
-      // }
-
       // Étape 2: Traitement IA (Cloud Function Gemini)
       final aiResponse = await _aiService.processRecipeText(text);
 
       if (aiResponse == null) {
-        _showError('Erreur lors du traitement par l\'IA (Cloud Function)');
+        _showError('Erreur lors du traitement par l\'IA');
         setState(() => _isProcessing = false);
         return;
       }
@@ -221,8 +210,7 @@ class _ScanScreenState extends State<ScanScreen> {
 
             // Boutons de sélection
             FilledButton.icon(
-              onPressed:
-                  _isProcessing ? null : () => _pickImage(ImageSource.camera),
+              onPressed: _isProcessing ? null : () => _pickImage(ImageSource.camera),
               icon: const Icon(Icons.camera_alt_outlined),
               label: const Text('Prendre une photo'),
               style: FilledButton.styleFrom(
@@ -235,8 +223,7 @@ class _ScanScreenState extends State<ScanScreen> {
             const SizedBox(height: AppSpacing.md),
 
             OutlinedButton.icon(
-              onPressed:
-                  _isProcessing ? null : () => _pickImage(ImageSource.gallery),
+              onPressed: _isProcessing ? null : () => _pickImage(ImageSource.gallery),
               icon: const Icon(Icons.photo_library_outlined),
               label: const Text('Choisir depuis la galerie'),
               style: OutlinedButton.styleFrom(
@@ -261,11 +248,8 @@ class _ScanScreenState extends State<ScanScreen> {
                       )
                     : Container(
                         height: 300,
-                        color: Theme.of(context)
-                            .colorScheme
-                            .surfaceContainerHighest,
-                        child: const Center(
-                            child: Icon(Icons.image_outlined, size: 48)),
+                        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                        child: const Center(child: Icon(Icons.image_outlined, size: 48)),
                       ),
               ),
               const SizedBox(height: AppSpacing.lg),
