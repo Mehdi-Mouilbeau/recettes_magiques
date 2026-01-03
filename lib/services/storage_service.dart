@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
-import 'dart:typed_data';
 
 /// Service de stockage Firebase Storage
 /// Gère l'upload des images de recettes

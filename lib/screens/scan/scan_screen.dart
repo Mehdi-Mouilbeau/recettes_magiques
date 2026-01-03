@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'dart:typed_data';
 import 'package:image_picker/image_picker.dart';
+import 'package:firebase_analytics/firebase_analytics.dart';
+
 import 'package:recette_magique/providers/auth_provider.dart';
 import 'package:recette_magique/providers/recipe_provider.dart';
 import 'package:recette_magique/services/ocr_service.dart';
@@ -55,11 +57,11 @@ class _ScanScreenState extends State<ScanScreen> {
     try {
       final XFile? image = await _picker.pickImage(
         source: source,
-        maxWidth: 1920,
-        maxHeight: 1920,
-        imageQuality: 85,
+        imageQuality: 100, // important iOS
+        maxWidth: 3000,
+        maxHeight: 3000,
       );
-
+      
       if (image != null) {
         setState(() {
           _imagePath = image.path;
@@ -83,6 +85,11 @@ class _ScanScreenState extends State<ScanScreen> {
   Future<void> _processImage() async {
     if (_imagePath == null) return;
 
+    //  Analytics : l'utilisateur lance un scan
+    await FirebaseAnalytics.instance.logEvent(
+      name: 'scan_started',
+    );
+
     setState(() {
       _isProcessing = true;
       _processingStep = 'Extraction du texte...';
@@ -102,8 +109,23 @@ class _ScanScreenState extends State<ScanScreen> {
         _processingStep = 'Traitement par l\'IA...';
       });
 
+      // ⏱️ Début mesure IA
+      final aiStart = DateTime.now();
+
       // Étape 2: Traitement IA (Cloud Function Gemini)
       final aiResponse = await _aiService.processRecipeText(text);
+
+      // ⏱️ Fin mesure IA
+      final aiDurationMs = DateTime.now().difference(aiStart).inMilliseconds;
+
+// 🔥 Analytics : performance IA
+      await FirebaseAnalytics.instance.logEvent(
+        name: 'ai_recipe_processed',
+        parameters: {
+          'duration_ms': aiDurationMs,
+          'text_length': text.length,
+        },
+      );
 
       if (aiResponse == null) {
         _showError('Erreur lors du traitement par l\'IA');
@@ -227,7 +249,8 @@ class _ScanScreenState extends State<ScanScreen> {
 
             // Boutons de sélection
             FilledButton.icon(
-              onPressed: _isProcessing ? null : () => _pickImage(ImageSource.camera),
+              onPressed:
+                  _isProcessing ? null : () => _pickImage(ImageSource.camera),
               icon: const Icon(Icons.camera_alt_outlined),
               label: const Text('Prendre une photo'),
               style: FilledButton.styleFrom(
@@ -240,7 +263,8 @@ class _ScanScreenState extends State<ScanScreen> {
             const SizedBox(height: AppSpacing.md),
 
             OutlinedButton.icon(
-              onPressed: _isProcessing ? null : () => _pickImage(ImageSource.gallery),
+              onPressed:
+                  _isProcessing ? null : () => _pickImage(ImageSource.gallery),
               icon: const Icon(Icons.photo_library_outlined),
               label: const Text('Choisir depuis la galerie'),
               style: OutlinedButton.styleFrom(
@@ -265,8 +289,11 @@ class _ScanScreenState extends State<ScanScreen> {
                       )
                     : Container(
                         height: 300,
-                        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                        child: const Center(child: Icon(Icons.image_outlined, size: 48)),
+                        color: Theme.of(context)
+                            .colorScheme
+                            .surfaceContainerHighest,
+                        child: const Center(
+                            child: Icon(Icons.image_outlined, size: 48)),
                       ),
               ),
               const SizedBox(height: AppSpacing.lg),

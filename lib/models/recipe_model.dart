@@ -45,6 +45,8 @@ class Recipe {
   final bool isFavorite;
   /// Nombre de personnes/portions pour les quantités d'ingrédients
   final int? servings;
+  /// Note personnelle de l'utilisateur
+  final String? note;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -62,6 +64,7 @@ class Recipe {
     this.scannedImageUrl,
     this.isFavorite = false,
     this.servings,
+    this.note,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -82,6 +85,7 @@ class Recipe {
     if (servings != null) 'servings': servings,
     'createdAt': Timestamp.fromDate(createdAt),
     'updatedAt': Timestamp.fromDate(updatedAt),
+    if (note != null) 'note': note,
   };
 
   /// Crée un modèle depuis les données Firestore
@@ -99,6 +103,7 @@ class Recipe {
     scannedImageUrl: json['scannedImageUrl'] as String?,
     isFavorite: (json['favorite'] ?? json['isFavorite'] ?? false) as bool,
     servings: _parseServings(json['servings'] ?? json['persons'] ?? json['serves']),
+    note: (json['note'] as String?)?.trim(),
     createdAt: _parseDate(json['createdAt']),
     updatedAt: _parseDate(json['updatedAt']),
   );
@@ -118,6 +123,7 @@ class Recipe {
     String? scannedImageUrl,
     bool? isFavorite,
     int? servings,
+    String? note,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) => Recipe(
@@ -134,6 +140,7 @@ class Recipe {
     scannedImageUrl: scannedImageUrl ?? this.scannedImageUrl,
     isFavorite: isFavorite ?? this.isFavorite,
     servings: servings ?? this.servings,
+    note: note ?? this.note,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
   );

@@ -22,6 +22,20 @@ class RecipeService {
     }
   }
 
+  /// Met à jour uniquement la note d'une recette
+  Future<bool> updateNote({required String recipeId, required String? note}) async {
+    try {
+      await _recipesCollection.doc(recipeId).update({
+        'note': note,
+        'updatedAt': Timestamp.fromDate(DateTime.now()),
+      });
+      return true;
+    } catch (e) {
+      debugPrint('Erreur mise à jour note: $e');
+      return false;
+    }
+  }
+
   /// Mettre à jour une recette existante
   Future<bool> updateRecipe(Recipe recipe) async {
     try {
@@ -181,6 +195,6 @@ class RecipeService {
         .replaceAll(RegExp('[òóôöõ]'), 'o')
         .replaceAll(RegExp('[ùúûü]'), 'u')
         .replaceAll(RegExp('[ýÿ]'), 'y');
-    return deacc.replaceAll(RegExp('\n+'), ' ').replaceAll(RegExp('\s+'), ' ');
+    return deacc.replaceAll(RegExp('\n+'), ' ').replaceAll(RegExp('s+'), ' ');
   }
 }

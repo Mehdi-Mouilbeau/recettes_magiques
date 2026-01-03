@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:recette_magique/models/recipe_model.dart';
 import 'package:recette_magique/providers/recipe_provider.dart';
+import 'package:recette_magique/providers/shooping_profider.dart';
 import 'package:recette_magique/theme.dart';
 
 /// Écran de détail d'une recette
@@ -18,11 +19,13 @@ class RecipeDetailScreen extends StatefulWidget {
 
 class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
   late int _people;
+  late final TextEditingController _noteController;
 
   @override
   void initState() {
     super.initState();
     _people = (widget.recipe.servings ?? 4).clamp(1, 24);
+    _noteController = TextEditingController(text: widget.recipe.note ?? '');
   }
 
   Future<void> _deleteRecipe(BuildContext context) async {
@@ -169,6 +172,51 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
 
                   const SizedBox(height: AppSpacing.xl),
 
+                  // Notes
+                  Text('Note', style: context.textStyles.titleLarge?.bold),
+                  const SizedBox(height: AppSpacing.md),
+                  Container(
+                    padding: const EdgeInsets.all(AppSpacing.md),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surfaceContainerLowest,
+                      borderRadius: BorderRadius.circular(AppRadius.md),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        TextField(
+                          controller: _noteController,
+                          minLines: 3,
+                          maxLines: 6,
+                          decoration: const InputDecoration(
+                            hintText: 'Vos annotations personnelles...',
+                            border: InputBorder.none,
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: FilledButton.icon(
+                            onPressed: () async {
+                              if (recipe.id == null) return;
+                              final ok = await context.read<RecipeProvider>().updateNote(recipe.id!, _noteController.text.trim());
+                              if (!mounted) return;
+                              if (ok) {
+                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Note enregistrée')));
+                              } else {
+                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Erreur lors de l\'enregistrement')));
+                              }
+                            },
+                            icon: const Icon(Icons.save),
+                            label: const Text('Enregistrer'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: AppSpacing.xl),
+
                   // Sélecteur de personnes
                   Row(
                     children: [
@@ -184,6 +232,26 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                         onChanged: (v) => setState(() => _people = v.clamp(1, 24)),
                       ),
                     ],
+                  ),
+
+                  const SizedBox(height: AppSpacing.lg),
+
+                  // Ajouter à la liste de courses
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: () {
+                        final prov = context.read<ShoppingProvider>();
+                        prov.addRecipe(recipe, _people);
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                          content: Text('Ajouté à la liste de courses'),
+                          behavior: SnackBarBehavior.floating,
+                        ));
+                        context.go('/courses');
+                      },
+                      icon: const Icon(Icons.shopping_bag),
+                      label: const Text('Liste'),
+                    ),
                   ),
 
                   const SizedBox(height: AppSpacing.lg),

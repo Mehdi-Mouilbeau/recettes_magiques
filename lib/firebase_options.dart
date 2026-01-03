@@ -4,21 +4,16 @@ import 'package:firebase_core/firebase_core.dart' show FirebaseOptions;
 import 'package:flutter/foundation.dart'
     show defaultTargetPlatform, kIsWeb, TargetPlatform;
 
-/// Default [FirebaseOptions] for use with your Firebase apps.
-///
-/// Example:
-/// ```dart
-/// import 'firebase_options.dart';
-/// // ...
-/// await Firebase.initializeApp(
-///   options: DefaultFirebaseOptions.currentPlatform,
-/// );
-/// ```
+/// API keys injected at build time:
+/// flutter run/build --dart-define=WEB_API_KEY=... --dart-define=ANDROID_API_KEY=... --dart-define=IOS_API_KEY=...
+const String _webApiKey = String.fromEnvironment('WEB_API_KEY');
+const String _androidApiKey = String.fromEnvironment('ANDROID_API_KEY');
+const String _iosApiKey = String.fromEnvironment('IOS_API_KEY');
+
 class DefaultFirebaseOptions {
   static FirebaseOptions get currentPlatform {
-    if (kIsWeb) {
-      return web;
-    }
+    if (kIsWeb) return web;
+
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
         return android;
@@ -46,30 +41,50 @@ class DefaultFirebaseOptions {
     }
   }
 
-  static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyB18m6Uk28iUwrDkPzdkqlWnR5t1HmGJhc',
-    appId: '1:65125955362:web:93925971802530172d577b',
-    messagingSenderId: '65125955362',
-    projectId: 'recette-magique-7de15',
-    authDomain: 'recette-magique-7de15.firebaseapp.com',
-    storageBucket: 'recette-magique-7de15.firebasestorage.app',
-    measurementId: 'G-Q7G11YSZC5',
-  );
+  /// Web Firebase options
+  static FirebaseOptions get web {
+    _assertKeyProvided(_webApiKey, 'WEB_API_KEY');
+    return FirebaseOptions(
+      apiKey: _webApiKey,
+      appId: '1:65125955362:web:93925971802530172d577b',
+      messagingSenderId: '65125955362',
+      projectId: 'recette-magique-7de15',
+      authDomain: 'recette-magique-7de15.firebaseapp.com',
+      storageBucket: 'recette-magique-7de15.firebasestorage.app',
+      measurementId: 'G-Q7G11YSZC5',
+    );
+  }
 
-  static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyDY20OE3o_CPXpkMdlIBjuV3a-C6RcMJwg',
-    appId: '1:65125955362:android:a568a6e324e439cf2d577b',
-    messagingSenderId: '65125955362',
-    projectId: 'recette-magique-7de15',
-    storageBucket: 'recette-magique-7de15.firebasestorage.app',
-  );
+  /// Android Firebase options
+  static FirebaseOptions get android {
+    _assertKeyProvided(_androidApiKey, 'ANDROID_API_KEY');
+    return FirebaseOptions(
+      apiKey: _androidApiKey,
+      appId: '1:65125955362:android:a568a6e324e439cf2d577b',
+      messagingSenderId: '65125955362',
+      projectId: 'recette-magique-7de15',
+      storageBucket: 'recette-magique-7de15.firebasestorage.app',
+    );
+  }
 
-  static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyDfjRMhjYDLsmz4a_TwNEVCnCejaYXMO0A',
-    appId: '1:65125955362:ios:1c2fc1c5c3c9ae6b2d577b',
-    messagingSenderId: '65125955362',
-    projectId: 'recette-magique-7de15',
-    storageBucket: 'recette-magique-7de15.firebasestorage.app',
-    iosBundleId: 'com.mycompany.Counterapp1',
-  );
+  /// iOS Firebase options
+  static FirebaseOptions get ios {
+    _assertKeyProvided(_iosApiKey, 'IOS_API_KEY');
+    return FirebaseOptions(
+      apiKey: _iosApiKey,
+      appId: '1:65125955362:ios:1c2fc1c5c3c9ae6b2d577b',
+      messagingSenderId: '65125955362',
+      projectId: 'recette-magique-7de15',
+      storageBucket: 'recette-magique-7de15.firebasestorage.app',
+      iosBundleId: 'com.mycompany.Counterapp1',
+    );
+  }
+}
+
+void _assertKeyProvided(String value, String name) {
+  if (value.isEmpty) {
+    throw StateError(
+      'Missing $name. Build/run the app with: --dart-define=$name=YOUR_VALUE',
+    );
+  }
 }

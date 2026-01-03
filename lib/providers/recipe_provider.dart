@@ -5,7 +5,6 @@ import 'package:recette_magique/services/recipe_service.dart';
 import 'package:recette_magique/services/storage_service.dart';
 import 'package:recette_magique/services/backend_config.dart';
 import 'package:recette_magique/services/gemini_image_service.dart';
-import 'dart:typed_data';
 
 /// Provider pour gérer l'état des recettes
 class RecipeProvider extends ChangeNotifier {
@@ -53,7 +52,8 @@ class RecipeProvider extends ChangeNotifier {
       },
       onError: (e) {
         // Souvent dû à un index composite manquant
-        _errorMessage = "Impossible de charger les recettes. Vérifiez l'index Firestore (userId + createdAt).";
+        _errorMessage =
+            "Impossible de charger les recettes. Vérifiez l'index Firestore (userId + createdAt).";
         notifyListeners();
       },
     );
@@ -71,55 +71,29 @@ class RecipeProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Créer une nouvelle recette
-  /// imagePath (scan source) is ignored now to avoid storing copyrighted scans.
-  /// We instead generate an AI image and save it as imageUrl.
   Future<bool> createRecipe(Recipe recipe, String? imagePath) async {
     if (!BackendConfig.firebaseReady) {
-      _errorMessage = 'Backend non configuré. Connectez Firebase via le panneau Dreamflow.';
+      _errorMessage = 'Backend non configuré.';
       notifyListeners();
       return false;
     }
+
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
 
     try {
-      // Créer la recette pour obtenir l'ID
-      final recipeId = await _recipeService.createRecipe(recipe);
+      final recipeId = await _recipeService.createRecipe(
+        recipe.copyWith(
+          // imageStatus: 'pending', // optionnel si tu ajoutes le champ
+        ),
+      );
+
       if (recipeId == null) {
         _errorMessage = 'Erreur lors de la création';
         _isLoading = false;
         notifyListeners();
         return false;
-      }
-
-      // Générer une image via Gemini (pas d'upload de l'image scannée)
-      try {
-        final bytes = await GeminiImages.generateRecipeImage(
-          title: recipe.title,
-          category: recipe.category.displayName,
-          keyIngredients: recipe.ingredients,
-        );
-
-        if (bytes != null) {
-          final aiUrl = await _storageService.uploadRecipeImageBytes(
-            bytes: bytes,
-            userId: recipe.userId,
-            recipeId: recipeId,
-            fileName: 'ai.png',
-            contentType: 'image/png',
-          );
-          if (aiUrl != null) {
-            final updatedRecipe = recipe.copyWith(
-              id: recipeId,
-              imageUrl: aiUrl,
-            );
-            await _recipeService.updateRecipe(updatedRecipe);
-          }
-        }
-      } catch (e) {
-        debugPrint('AI image generation/upload failed: $e');
       }
 
       _isLoading = false;
@@ -136,7 +110,8 @@ class RecipeProvider extends ChangeNotifier {
   /// Mettre à jour une recette
   Future<bool> updateRecipe(Recipe recipe) async {
     if (!BackendConfig.firebaseReady) {
-      _errorMessage = 'Backend non configuré. Connectez Firebase via le panneau Dreamflow.';
+      _errorMessage =
+          'Backend non configuré. Connectez Firebase via le panneau Dreamflow.';
       notifyListeners();
       return false;
     }
@@ -160,7 +135,8 @@ class RecipeProvider extends ChangeNotifier {
   /// Supprimer une recette
   Future<bool> deleteRecipe(Recipe recipe) async {
     if (!BackendConfig.firebaseReady) {
-      _errorMessage = 'Backend non configuré. Connectez Firebase via le panneau Dreamflow.';
+      _errorMessage =
+          'Backend non configuré. Connectez Firebase via le panneau Dreamflow.';
       notifyListeners();
       return false;
     }
@@ -187,11 +163,27 @@ class RecipeProvider extends ChangeNotifier {
     }
   }
 
-   /// Basculer favori pour une recette
+  /// Met à jour la note d'une recette et synchronise localement
+  Future<bool> updateNote(String recipeId, String? note) async {
+    if (!BackendConfig.firebaseReady) return false;
+    final ok = await _recipeService.updateNote(recipeId: recipeId, note: note);
+    if (ok) {
+      final idx = _recipes.indexWhere((r) => r.id == recipeId);
+      if (idx != -1) {
+        _recipes[idx] =
+            _recipes[idx].copyWith(note: note, updatedAt: DateTime.now());
+        notifyListeners();
+      }
+    }
+    return ok;
+  }
+
+  /// Basculer favori pour une recette
   Future<void> toggleFavorite(Recipe recipe) async {
     if (!BackendConfig.firebaseReady || recipe.id == null) return;
     final newValue = !recipe.isFavorite;
-    final success = await _recipeService.setFavorite(recipeId: recipe.id!, value: newValue);
+    final success =
+        await _recipeService.setFavorite(recipeId: recipe.id!, value: newValue);
     if (success) {
       // Mettre à jour localement pour un retour instantané
       final idx = _recipes.indexWhere((r) => r.id == recipe.id);
@@ -225,7 +217,8 @@ class RecipeProvider extends ChangeNotifier {
   }
 
   /// Rechercher par liste d'ingrédients disponibles (ex: "tomate, carotte")
-  Future<void> searchByIngredients(String userId, List<String> ingredients) async {
+  Future<void> searchByIngredients(
+      String userId, List<String> ingredients) async {
     _recipesSub?.cancel();
     if (ingredients.isEmpty) {
       loadUserRecipes(userId);
