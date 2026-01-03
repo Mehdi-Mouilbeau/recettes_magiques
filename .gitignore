@@ -5,6 +5,7 @@
 *.swp
 *.env
 apikey.json
+FIREBASE_SETUP.md
 .DS_Store
 .atom/
 .build/
