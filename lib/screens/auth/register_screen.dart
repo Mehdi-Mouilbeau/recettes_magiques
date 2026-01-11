@@ -47,6 +47,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final authProvider = context.watch<AuthProvider>();
 
     return Scaffold(
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
@@ -60,14 +61,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const SizedBox(height: 20),
-              
+
               Text(
                 'Créer un compte',
                 style: context.textStyles.headlineLarge?.bold,
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: AppSpacing.sm),
-              
+
               Text(
                 'Commencez à organiser vos recettes',
                 style: context.textStyles.bodyLarge?.withColor(
@@ -103,7 +104,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       },
                     ),
                     const SizedBox(height: AppSpacing.md),
-                    
                     TextFormField(
                       controller: _passwordController,
                       obscureText: _obscurePassword,
@@ -133,7 +133,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       },
                     ),
                     const SizedBox(height: AppSpacing.md),
-                    
                     TextFormField(
                       controller: _confirmPasswordController,
                       obscureText: _obscureConfirmPassword,

@@ -4,7 +4,6 @@ import 'package:recette_magique/models/recipe_model.dart';
 import 'package:recette_magique/services/recipe_service.dart';
 import 'package:recette_magique/services/storage_service.dart';
 import 'package:recette_magique/services/backend_config.dart';
-import 'package:recette_magique/services/gemini_image_service.dart';
 
 /// Provider pour gérer l'état des recettes
 class RecipeProvider extends ChangeNotifier {

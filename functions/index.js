@@ -5,6 +5,8 @@ const { onDocumentCreated } = require("firebase-functions/v2/firestore");
 const { defineSecret } = require("firebase-functions/params");
 const logger = require("firebase-functions/logger");
 
+const sharp = require("sharp");
+
 const admin = require("firebase-admin");
 const crypto = require("crypto");
 
@@ -18,15 +20,36 @@ const GEMINI_API_KEY = defineSecret("GEMINI_API_KEY");
  */
 async function generateImageBase64({ title, category, ingredients }) {
   const ing = Array.isArray(ingredients)
-    ? ingredients.map((x) => String(x || "").trim()).filter(Boolean).slice(0, 6)
+    ? ingredients
+        .map((x) => String(x || "").trim())
+        .filter(Boolean)
+        .slice(0, 6)
     : [];
 
+  const safeTitle = String(title || "")
+    .trim()
+    .slice(0, 80);
+  const cat = String(category || "")
+    .trim()
+    .toLowerCase();
+
   const promptText = [
-    `High quality food photography of a dish for a recipe named "${String(title).trim()}".`,
-    category ? `Course type: ${String(category).toLowerCase()}.` : "",
-    ing.length ? `Ingredients focus: ${ing.join(", ")}.` : "",
-    "Natural light, appetizing styling, clean neutral background, shallow depth of field.",
-    "No text, no logos, no branding, no hands, no people.",
+    //  Ancrage fort: C'EST UNE PHOTO CULINAIRE RÉALISTE
+    `Photorealistic food photography of the finished dish (edible meal) for the recipe "${safeTitle}".`,
+    cat ? `Dish type: ${cat}.` : "",
+    ing.length ? `Key visible ingredients: ${ing.join(", ")}.` : "",
+
+    //  Contraintes de cadrage/plating pour éviter paysages / affiches
+    "Single plated dish as the main subject, centered in frame, on a ceramic plate or bowl.",
+    "Three-quarter angle (about 45 degrees), shallow depth of field, DSLR look, 50mm lens, f/2.8, realistic lighting.",
+    "Natural soft daylight, subtle shadows, true-to-life colors, high detail, appetizing texture, slight steam if hot.",
+    "Simple neutral background (kitchen table), minimal props only (e.g., fork), no busy scenery.",
+
+    //  Anti-texte/anti-overlay très explicite
+    "ABSOLUTELY NO text of any kind: no letters, no words, no subtitles, no captions, no labels, no menu, no typography.",
+    "No logos, no watermarks, no branding, no packaging, no book pages, no screenshots, no UI elements.",
+    "No people, no hands, no faces, no animals.",
+    "Do not generate landscapes, buildings, islands, castles, posters, banners, or graphic designs — only the plated food photo.",
   ]
     .filter(Boolean)
     .join(" ");
@@ -73,7 +96,7 @@ async function generateImageBase64({ title, category, ingredients }) {
 }
 
 /**
- * ✅ 1) HTTP: Transforme texte OCR -> JSON recette structurée
+ *  1) HTTP: Transforme texte OCR -> JSON recette structurée
  */
 exports.processRecipe = onRequest(
   {
@@ -149,47 +172,8 @@ Texte OCR:
   }
 );
 
-// /**
-//  * ✅ 2) HTTP: Génération d'image (utile pour tests Flutter)
-//  * -> renvoie { mimeType, b64 }
-//  */
-// exports.generateRecipeImage = onRequest(
-//   {
-//     region: "europe-west1",
-//     secrets: [GEMINI_API_KEY],
-//     cors: true,
-//     timeoutSeconds: 60,
-//   },
-//   async (req, res) => {
-//     try {
-//       if (req.method !== "POST") {
-//         return res.status(405).json({ error: "Use POST" });
-//       }
-
-//       const { title, category, ingredients } = req.body || {};
-//       if (!title || typeof title !== "string") {
-//         return res.status(400).json({ error: "Missing 'title'" });
-//       }
-
-//       const { b64, mimeType } = await generateImageBase64({
-//         title,
-//         category,
-//         ingredients,
-//       });
-
-//       return res.status(200).json({ mimeType, b64 });
-//     } catch (err) {
-//       logger.error(err);
-//       return res.status(500).json({
-//         error: "Image generation exception",
-//         details: String(err?.message || err),
-//       });
-//     }
-//   }
-// );
-
 /**
- * ✅ 3) OPTION B (background): Trigger Firestore
+ *  3) OPTION B (background): Trigger Firestore
  * Quand une recette est créée -> génère l'image + upload Storage + update Firestore.imageUrl
  */
 exports.generateRecipeImageOnCreate = onDocumentCreated(
@@ -207,7 +191,7 @@ exports.generateRecipeImageOnCreate = onDocumentCreated(
     const recipeId = event.params.recipeId;
     const data = snap.data() || {};
 
-    // 🔁 Anti double-run
+    //  Anti double-run
     if (data.imageUrl) {
       logger.info("Image already exists, skipping", { recipeId });
       return;
@@ -234,24 +218,31 @@ exports.generateRecipeImageOnCreate = onDocumentCreated(
 
     try {
       // 1) Générer base64
-      const { b64, mimeType } = await generateImageBase64({
+      const { b64 } = await generateImageBase64({
         title,
         category,
         ingredients,
       });
 
-      const buffer = Buffer.from(b64, "base64");
+      const inputBuffer = Buffer.from(b64, "base64");
 
-      // 2) Upload Storage
+      //  1bis) Optimisation: resize + WebP
+      // 512x512 est un super compromis perf/qualité pour une app
+      const webpBuffer = await sharp(inputBuffer)
+        .resize(512, 512, { fit: "cover" })
+        .webp({ quality: 78 }) // tu peux ajuster 70-85
+        .toBuffer();
+
+      // 2) Upload Storage (image optimisée)
       const bucket = admin.storage().bucket();
-      const filePath = `recipes/${userId}/${recipeId}/ai.png`;
+      const filePath = `recipes/${userId}/${recipeId}/ai.webp`;
       const file = bucket.file(filePath);
 
-      await file.save(buffer, {
-        contentType: mimeType || "image/png",
+      await file.save(webpBuffer, {
+        contentType: "image/webp",
         resumable: false,
         metadata: {
-          cacheControl: "public, max-age=31536000",
+          cacheControl: "public, max-age=31536000, immutable",
         },
       });
 
@@ -277,7 +268,10 @@ exports.generateRecipeImageOnCreate = onDocumentCreated(
         { merge: true }
       );
 
-      logger.info("✅ Image generated & attached", { recipeId, filePath });
+      logger.info("✅ Optimized WebP image generated & attached", {
+        recipeId,
+        filePath,
+      });
     } catch (err) {
       logger.error("generateRecipeImageOnCreate failed", err);
       await snap.ref.set(

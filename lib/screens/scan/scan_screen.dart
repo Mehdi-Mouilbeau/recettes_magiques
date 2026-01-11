@@ -10,7 +10,6 @@ import 'package:recette_magique/providers/recipe_provider.dart';
 import 'package:recette_magique/services/ocr_service.dart';
 import 'package:recette_magique/services/ai_service.dart';
 import 'package:recette_magique/models/recipe_model.dart';
-import 'package:recette_magique/theme.dart';
 
 /// Écran de scan de recette avec OCR
 class ScanScreen extends StatefulWidget {
@@ -53,15 +52,45 @@ class _ScanScreenState extends State<ScanScreen> {
     super.dispose();
   }
 
+  void _showError(String message) {
+    if (!mounted) return;
+
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    if (messenger == null) return;
+
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+      ),
+    );
+  }
+
+  void _showSuccess() {
+    if (!mounted) return;
+
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    if (messenger == null) return;
+
+    messenger.showSnackBar(
+      const SnackBar(
+        content: Text('Recette ajoutée avec succès !'),
+        backgroundColor: Colors.green,
+      ),
+    );
+  }
+
   Future<void> _pickImage(ImageSource source) async {
     try {
       final XFile? image = await _picker.pickImage(
         source: source,
-        imageQuality: 100, // important iOS
+        imageQuality: 100,
         maxWidth: 3000,
         maxHeight: 3000,
       );
-      
+
+      if (!mounted) return;
+
       if (image != null) {
         setState(() {
           _imagePath = image.path;
@@ -73,11 +102,12 @@ class _ScanScreenState extends State<ScanScreen> {
           final bytes = await image.readAsBytes();
           if (!mounted) return;
           setState(() => _imageBytes = bytes);
-        } catch (e) {
-          // On ignore l'erreur d'aperçu, cela n'empêche pas l'OCR ni l'upload
+        } catch (_) {
+          // ignore preview error
         }
       }
-    } catch (e) {
+    } catch (_) {
+      if (!mounted) return;
       _showError('Erreur lors de la sélection de l\'image');
     }
   }
@@ -85,10 +115,8 @@ class _ScanScreenState extends State<ScanScreen> {
   Future<void> _processImage() async {
     if (_imagePath == null) return;
 
-    //  Analytics : l'utilisateur lance un scan
-    await FirebaseAnalytics.instance.logEvent(
-      name: 'scan_started',
-    );
+    await FirebaseAnalytics.instance.logEvent(name: 'scan_started');
+    if (!mounted) return;
 
     setState(() {
       _isProcessing = true;
@@ -96,10 +124,12 @@ class _ScanScreenState extends State<ScanScreen> {
     });
 
     try {
-      // Étape 1: OCR
       final text = await _ocrService.extractTextFromImage(_imagePath!);
+      if (!mounted) return;
+
       if (text == null || text.isEmpty) {
         _showError('Aucun texte détecté dans l\'image');
+        if (!mounted) return;
         setState(() => _isProcessing = false);
         return;
       }
@@ -109,16 +139,12 @@ class _ScanScreenState extends State<ScanScreen> {
         _processingStep = 'Traitement par l\'IA...';
       });
 
-      // ⏱️ Début mesure IA
       final aiStart = DateTime.now();
-
-      // Étape 2: Traitement IA (Cloud Function Gemini)
       final aiResponse = await _aiService.processRecipeText(text);
+      if (!mounted) return;
 
-      // ⏱️ Fin mesure IA
       final aiDurationMs = DateTime.now().difference(aiStart).inMilliseconds;
 
-// 🔥 Analytics : performance IA
       await FirebaseAnalytics.instance.logEvent(
         name: 'ai_recipe_processed',
         parameters: {
@@ -126,9 +152,11 @@ class _ScanScreenState extends State<ScanScreen> {
           'text_length': text.length,
         },
       );
+      if (!mounted) return;
 
       if (aiResponse == null) {
         _showError('Erreur lors du traitement par l\'IA');
+        if (!mounted) return;
         setState(() => _isProcessing = false);
         return;
       }
@@ -137,7 +165,6 @@ class _ScanScreenState extends State<ScanScreen> {
         _processingStep = 'Sauvegarde de la recette...';
       });
 
-      // Étape 3: Créer la recette
       final authProvider = context.read<AuthProvider>();
       final recipeProvider = context.read<RecipeProvider>();
 
@@ -156,46 +183,32 @@ class _ScanScreenState extends State<ScanScreen> {
       );
 
       final success = await recipeProvider.createRecipe(recipe, _imagePath);
+      if (!mounted) return;
 
       setState(() => _isProcessing = false);
 
-      if (success && mounted) {
+      if (success) {
         _showSuccess();
         context.go('/home');
-      } else {
-        _showError('Erreur lors de la sauvegarde');
+        return;
       }
-    } catch (e) {
+
+      _showError('Erreur lors de la sauvegarde');
+    } catch (_) {
       _showError('Une erreur est survenue');
+      if (!mounted) return;
       setState(() => _isProcessing = false);
     }
-  }
-
-  void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Theme.of(context).colorScheme.error,
-      ),
-    );
-  }
-
-  void _showSuccess() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Recette ajoutée avec succès !'),
-        backgroundColor: Colors.green,
-      ),
-    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
-        title: Text(
+        title: const Text(
           'Scanner une recette',
-          style: context.textStyles.titleLarge?.bold,
+          style: TextStyle(fontWeight: FontWeight.w700),
         ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
@@ -203,83 +216,70 @@ class _ScanScreenState extends State<ScanScreen> {
         ),
       ),
       body: SingleChildScrollView(
-        padding: AppSpacing.paddingXl,
+        padding: const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Instructions
             Container(
-              padding: AppSpacing.paddingMd,
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primaryContainer,
-                borderRadius: BorderRadius.circular(AppRadius.md),
+                color: Colors.blueGrey.shade50,
+                borderRadius: BorderRadius.circular(12),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+                children: const [
                   Row(
                     children: [
-                      Icon(
-                        Icons.info_outline,
-                        color: Theme.of(context).colorScheme.onPrimaryContainer,
-                      ),
-                      const SizedBox(width: AppSpacing.sm),
+                      Icon(Icons.info_outline),
+                      SizedBox(width: 8),
                       Text(
                         'Comment ça marche ?',
-                        style: context.textStyles.titleMedium?.bold.withColor(
-                          Theme.of(context).colorScheme.onPrimaryContainer,
-                        ),
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
                       ),
                     ],
                   ),
-                  const SizedBox(height: AppSpacing.sm),
+                  SizedBox(height: 8),
                   Text(
                     '1. Prenez une photo claire de la recette\n'
                     '2. Le texte sera extrait automatiquement\n'
                     '3. L\'IA structurera la recette\n'
                     '4. Vérifiez et modifiez si nécessaire',
-                    style: context.textStyles.bodyMedium?.withColor(
-                      Theme.of(context).colorScheme.onPrimaryContainer,
-                    ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: AppSpacing.xl),
+            const SizedBox(height: 24),
 
-            // Boutons de sélection
             FilledButton.icon(
-              onPressed:
-                  _isProcessing ? null : () => _pickImage(ImageSource.camera),
+              onPressed: _isProcessing ? null : () => _pickImage(ImageSource.camera),
               icon: const Icon(Icons.camera_alt_outlined),
               label: const Text('Prendre une photo'),
               style: FilledButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppRadius.md),
+                  borderRadius: BorderRadius.circular(12),
                 ),
               ),
             ),
-            const SizedBox(height: AppSpacing.md),
+            const SizedBox(height: 16),
 
             OutlinedButton.icon(
-              onPressed:
-                  _isProcessing ? null : () => _pickImage(ImageSource.gallery),
+              onPressed: _isProcessing ? null : () => _pickImage(ImageSource.gallery),
               icon: const Icon(Icons.photo_library_outlined),
               label: const Text('Choisir depuis la galerie'),
               style: OutlinedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppRadius.md),
+                  borderRadius: BorderRadius.circular(12),
                 ),
               ),
             ),
 
-            // Prévisualisation de l'image
             if (_imagePath != null) ...[
-              const SizedBox(height: AppSpacing.xl),
+              const SizedBox(height: 24),
               ClipRRect(
-                borderRadius: BorderRadius.circular(AppRadius.md),
+                borderRadius: BorderRadius.circular(12),
                 child: _imageBytes != null
                     ? Image.memory(
                         _imageBytes!,
@@ -289,22 +289,20 @@ class _ScanScreenState extends State<ScanScreen> {
                       )
                     : Container(
                         height: 300,
-                        color: Theme.of(context)
-                            .colorScheme
-                            .surfaceContainerHighest,
+                        color: Colors.grey.shade200,
                         child: const Center(
-                            child: Icon(Icons.image_outlined, size: 48)),
+                          child: Icon(Icons.image_outlined, size: 48),
+                        ),
                       ),
               ),
-              const SizedBox(height: AppSpacing.lg),
+              const SizedBox(height: 20),
 
-              // Bouton de traitement
               FilledButton(
                 onPressed: _isProcessing ? null : _processImage,
                 style: FilledButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppRadius.md),
+                    borderRadius: BorderRadius.circular(12),
                   ),
                 ),
                 child: _isProcessing
@@ -316,7 +314,7 @@ class _ScanScreenState extends State<ScanScreen> {
                             width: 20,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           ),
-                          const SizedBox(width: AppSpacing.md),
+                          const SizedBox(width: 16),
                           Text(_processingStep),
                         ],
                       )
@@ -324,23 +322,22 @@ class _ScanScreenState extends State<ScanScreen> {
               ),
             ],
 
-            // Texte extrait (prévisualisation)
             if (_extractedText != null && !_isProcessing) ...[
-              const SizedBox(height: AppSpacing.xl),
-              Text(
+              const SizedBox(height: 24),
+              const Text(
                 'Texte extrait',
-                style: context.textStyles.titleMedium?.bold,
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
               ),
-              const SizedBox(height: AppSpacing.sm),
+              const SizedBox(height: 8),
               Container(
-                padding: AppSpacing.paddingMd,
+                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(AppRadius.md),
+                  color: Colors.grey.shade200,
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
                   _extractedText!,
-                  style: context.textStyles.bodySmall,
+                  style: const TextStyle(fontSize: 12),
                   maxLines: 10,
                   overflow: TextOverflow.ellipsis,
                 ),

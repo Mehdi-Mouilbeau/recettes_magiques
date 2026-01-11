@@ -1,9 +1,12 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_analytics/observer.dart';
-import 'package:recette_magique/screens/shopping/shooping_home_screen.dart';
+import 'package:provider/provider.dart';
 
+import 'package:recette_magique/screens/shopping/shooping_home_screen.dart';
 import 'package:recette_magique/services/backend_config.dart';
 import 'package:recette_magique/screens/auth/login_screen.dart';
 import 'package:recette_magique/screens/auth/register_screen.dart';
@@ -12,29 +15,28 @@ import 'package:recette_magique/screens/scan/scan_screen.dart';
 import 'package:recette_magique/screens/recipe/recipe_detail_screen.dart';
 import 'package:recette_magique/services/recipe_service.dart';
 import 'package:recette_magique/screens/shopping/shopping_list_screen.dart';
-import 'package:provider/provider.dart';
+
 import 'package:recette_magique/providers/leftovers_provider.dart';
 import 'package:recette_magique/providers/auth_provider.dart' as app_auth;
+
 import 'package:recette_magique/theme.dart';
 import 'package:recette_magique/widgets/recipe_card.dart';
 
 /// Configuration de la navigation avec go_router
 class AppRouter {
-  /// Construit dynamiquement le routeur afin de lire l'état backend.
   /// On accepte un [FirebaseAnalyticsObserver] optionnel pour tracker les screens.
   static GoRouter buildRouter({FirebaseAnalyticsObserver? analyticsObserver}) {
     final hasBackend = BackendConfig.firebaseReady;
+    final rootNavigatorKey = GlobalKey<NavigatorState>();
 
     return GoRouter(
-      // ✅ Injecte l'observer Analytics si fourni
+      navigatorKey: rootNavigatorKey,
+      initialLocation: hasBackend ? AppRoutes.login : AppRoutes.home,
       observers: [
         if (analyticsObserver != null) analyticsObserver,
       ],
-
-      initialLocation: hasBackend ? AppRoutes.login : AppRoutes.home,
-
       redirect: (context, state) {
-        if (!hasBackend) return null; // Pas de checks d'auth sans backend
+        if (!hasBackend) return null;
 
         final user = FirebaseAuth.instance.currentUser;
         final isLoggedIn = user != null;
@@ -43,30 +45,29 @@ class AppRouter {
         final isLoginPage = loc == AppRoutes.login;
         final isRegisterPage = loc == AppRoutes.register;
 
-        // Rediriger vers login si non connecté
         if (!isLoggedIn && !isLoginPage && !isRegisterPage) {
           return AppRoutes.login;
         }
 
-        // Rediriger vers home si déjà connecté
         if (isLoggedIn && (isLoginPage || isRegisterPage)) {
           return AppRoutes.home;
         }
 
         return null;
       },
-
       routes: [
         // Auth routes (no bottom navigation)
         GoRoute(
           path: AppRoutes.login,
           name: 'login',
-          pageBuilder: (context, state) => const NoTransitionPage(child: LoginScreen()),
+          pageBuilder: (context, state) =>
+              const NoTransitionPage(child: LoginScreen()),
         ),
         GoRoute(
           path: AppRoutes.register,
           name: 'register',
-          pageBuilder: (context, state) => const NoTransitionPage(child: RegisterScreen()),
+          pageBuilder: (context, state) =>
+              const NoTransitionPage(child: RegisterScreen()),
         ),
 
         // Shell with BottomNavigationBar
@@ -76,23 +77,28 @@ class AppRouter {
             GoRoute(
               path: AppRoutes.home,
               name: 'home',
-              pageBuilder: (context, state) => const NoTransitionPage(child: HomeScreen()),
+              pageBuilder: (context, state) =>
+                  const NoTransitionPage(child: HomeScreen()),
             ),
             GoRoute(
               path: AppRoutes.scan,
               name: 'scan',
-              pageBuilder: (context, state) => const NoTransitionPage(child: ScanScreen()),
+              pageBuilder: (context, state) =>
+                  const NoTransitionPage(child: ScanScreen()),
             ),
             GoRoute(
               path: AppRoutes.courses,
               name: 'courses',
-              pageBuilder: (context, state) => const NoTransitionPage(child: ShoppingHomeScreen()),
+              pageBuilder: (context, state) =>
+                  const NoTransitionPage(child: ShoppingHomeScreen()),
             ),
             GoRoute(
               path: AppRoutes.leftovers,
               name: 'leftovers',
-              pageBuilder: (context, state) => NoTransitionPage(child: _LeftoversPage()),
+              pageBuilder: (context, state) =>
+                  NoTransitionPage(child: _LeftoversPage()),
             ),
+
             // Detail pages inside shell (keep bottom nav visible)
             GoRoute(
               path: '${AppRoutes.recipeDetail}/:id',
@@ -101,30 +107,43 @@ class AppRouter {
                 final recipeId = state.pathParameters['id'];
                 if (recipeId == null || recipeId.isEmpty) {
                   return const MaterialPage(
-                    child: Scaffold(body: Center(child: Text('ID de recette manquant'))),
+                    child: Scaffold(
+                      body: Center(child: Text('ID de recette manquant')),
+                    ),
                   );
                 }
+
                 if (!hasBackend) {
                   return const MaterialPage(
                     child: Scaffold(
                       body: Center(
                         child: Padding(
                           padding: EdgeInsets.all(24),
-                          child: Text('Connectez Firebase via le panneau Dreamflow pour accéder aux recettes.', textAlign: TextAlign.center),
+                          child: Text(
+                            'Connectez Firebase via le panneau Dreamflow pour accéder aux recettes.',
+                            textAlign: TextAlign.center,
+                          ),
                         ),
                       ),
                     ),
                   );
                 }
+
                 return MaterialPage(
                   child: FutureBuilder(
                     future: RecipeService().getRecipe(recipeId),
                     builder: (context, snapshot) {
                       if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Scaffold(body: Center(child: CircularProgressIndicator()));
+                        return const Scaffold(
+                          body: Center(child: CircularProgressIndicator()),
+                        );
                       }
                       if (snapshot.hasError || snapshot.data == null) {
-                        return Scaffold(appBar: AppBar(), body: const Center(child: Text('Recette non trouvée')));
+                        return Scaffold(
+                          appBar: AppBar(),
+                          body:
+                              const Center(child: Text('Recette non trouvée')),
+                        );
                       }
                       return RecipeDetailScreen(recipe: snapshot.data!);
                     },
@@ -132,6 +151,7 @@ class AppRouter {
                 );
               },
             ),
+
             GoRoute(
               path: AppRoutes.shopping,
               name: 'shopping',
@@ -139,7 +159,9 @@ class AppRouter {
                 final extra = state.extra;
                 if (extra is! ShoppingListArgs) {
                   return const MaterialPage(
-                    child: Scaffold(body: Center(child: Text('Arguments invalides'))),
+                    child: Scaffold(
+                      body: Center(child: Text('Arguments invalides')),
+                    ),
                   );
                 }
                 return MaterialPage(child: ShoppingListScreen(args: extra));
@@ -173,7 +195,7 @@ class _RootShell extends StatelessWidget {
     if (loc.startsWith(AppRoutes.scan)) return 1;
     if (loc.startsWith(AppRoutes.courses)) return 2;
     if (loc.startsWith(AppRoutes.leftovers)) return 3;
-    return 0; // home
+    return 0;
   }
 
   void _onTap(BuildContext context, int index) {
@@ -199,16 +221,64 @@ class _RootShell extends StatelessWidget {
     final current = _indexForLocation(loc);
 
     return Scaffold(
+      backgroundColor: Colors.transparent,
+      extendBodyBehindAppBar: true,
+      extendBody: true,
       body: child,
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: current,
-        onDestinationSelected: (i) => _onTap(context, i),
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.restaurant_menu_outlined), selectedIcon: Icon(Icons.restaurant_menu), label: 'Recettes'),
-          NavigationDestination(icon: Icon(Icons.document_scanner_outlined), selectedIcon: Icon(Icons.document_scanner), label: 'Scan'),
-          NavigationDestination(icon: Icon(Icons.shopping_bag_outlined), selectedIcon: Icon(Icons.shopping_bag), label: 'Courses'),
-          NavigationDestination(icon: Icon(Icons.kitchen_outlined), selectedIcon: Icon(Icons.kitchen), label: 'Restes'),
-        ],
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(AppRadius.xl),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+              child: Container(
+                decoration: BoxDecoration(
+                  // ✅ glass
+                  color: AppColors.card.withOpacity(0.60),
+                  borderRadius: BorderRadius.circular(AppRadius.xl),
+                  border: Border.all(color: AppColors.border),
+                  boxShadow: const [
+                    BoxShadow(
+                      blurRadius: 20,
+                      offset: Offset(0, 10),
+                      color: AppColors.shadow,
+                    ),
+                  ],
+                ),
+                child: NavigationBar(
+                  backgroundColor: Colors.transparent,
+                  elevation: 0,
+                  selectedIndex: current,
+                  onDestinationSelected: (i) => _onTap(context, i),
+                  destinations: const [
+                    NavigationDestination(
+                      icon: Icon(Icons.restaurant_menu_outlined),
+                      selectedIcon: Icon(Icons.restaurant_menu),
+                      label: 'Recettes',
+                    ),
+                    NavigationDestination(
+                      icon: Icon(Icons.document_scanner_outlined),
+                      selectedIcon: Icon(Icons.document_scanner),
+                      label: 'Scan',
+                    ),
+                    NavigationDestination(
+                      icon: Icon(Icons.shopping_bag_outlined),
+                      selectedIcon: Icon(Icons.shopping_bag),
+                      label: 'Courses',
+                    ),
+                    NavigationDestination(
+                      icon: Icon(Icons.kitchen_outlined),
+                      selectedIcon: Icon(Icons.kitchen),
+                      label: 'Restes',
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -222,15 +292,29 @@ class _LeftoversPage extends StatefulWidget {
 
 class _LeftoversPageState extends State<_LeftoversPage> {
   final TextEditingController _controller = TextEditingController();
+  bool _didLoad = false;
 
   @override
-  void initState() {
-    super.initState();
-    final auth = context.read<app_auth.AuthProvider?>();
-    if (auth?.currentUser != null) {
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_didLoad) return;
+    _didLoad = true;
+
+    // ✅ important : décaler après le 1er frame pour éviter notifyListeners pendant build
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+
+      final auth = context.read<app_auth.AuthProvider?>();
+      final uid = auth?.currentUser?.uid;
+      if (uid == null) return;
+
       final prov = context.read<LeftoversProvider>();
-      prov.load(auth!.currentUser!.uid).then((_) => prov.fetchSuggestions(auth.currentUser!.uid));
-    }
+
+      await prov.load(uid);
+      if (!mounted) return;
+
+      await prov.fetchSuggestions(uid);
+    });
   }
 
   @override
@@ -243,6 +327,7 @@ class _LeftoversPageState extends State<_LeftoversPage> {
     final prov = context.read<LeftoversProvider>();
     final raw = _controller.text.trim();
     if (raw.isEmpty) return;
+
     final list = [...prov.leftovers];
     for (final token in raw.split(RegExp(r'[;,\n]'))) {
       final t = token.trim();
@@ -254,12 +339,19 @@ class _LeftoversPageState extends State<_LeftoversPage> {
 
   Future<void> _save() async {
     final auth = context.read<app_auth.AuthProvider?>();
-    if (auth?.currentUser == null) return;
-    final ok = await context.read<LeftoversProvider>().save(auth!.currentUser!.uid, context.read<LeftoversProvider>().leftovers);
+    final uid = auth?.currentUser?.uid;
+    if (uid == null) return;
+
+    final prov = context.read<LeftoversProvider>();
+    final ok = await prov.save(uid, prov.leftovers);
     if (!mounted) return;
+
     if (ok) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Restes enregistrés')));
-      await context.read<LeftoversProvider>().fetchSuggestions(auth.currentUser!.uid);
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        const SnackBar(content: Text('Restes enregistrés')),
+      );
+      await prov.fetchSuggestions(uid);
+      if (!mounted) return;
     }
   }
 
@@ -268,13 +360,29 @@ class _LeftoversPageState extends State<_LeftoversPage> {
     final prov = context.watch<LeftoversProvider>();
     final items = prov.leftovers;
     final suggested = prov.suggestions;
+
     return Scaffold(
+      backgroundColor: Colors.transparent,
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
+        backgroundColor: Colors.transparent, // ✅
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
         title: const Text('Mes restes'),
-        actions: [IconButton(onPressed: _save, icon: const Icon(Icons.save_alt, color: Colors.blue))],
+        actions: [
+          IconButton(
+            onPressed: _save,
+            icon: const Icon(Icons.save_alt),
+          )
+        ],
       ),
       body: Padding(
-        padding: AppSpacing.paddingMd,
+        padding: AppSpacing.paddingMd.copyWith(
+          top: AppSpacing.paddingMd.top +
+              kToolbarHeight +
+              MediaQuery.of(context).padding.top,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -283,13 +391,17 @@ class _LeftoversPageState extends State<_LeftoversPage> {
               decoration: InputDecoration(
                 hintText: 'Ajouter un ingrédient (tomates, carottes...)',
                 prefixIcon: const Icon(Icons.add),
-                suffixIcon: IconButton(onPressed: _addItem, icon: const Icon(Icons.check_circle, color: Colors.green)),
+                suffixIcon: IconButton(
+                  onPressed: _addItem,
+                  icon: const Icon(Icons.check_circle),
+                ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(AppRadius.md),
                   borderSide: BorderSide.none,
                 ),
                 filled: true,
-                contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+                contentPadding:
+                    const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
               ),
               onSubmitted: (_) => _addItem(),
             ),
@@ -309,7 +421,10 @@ class _LeftoversPageState extends State<_LeftoversPage> {
               ],
             ),
             const SizedBox(height: AppSpacing.lg),
-            Text('Recettes suggérées', style: Theme.of(context).textTheme.titleLarge?.bold),
+            Text(
+              'Recettes suggérées',
+              style: Theme.of(context).textTheme.titleLarge?.bold,
+            ),
             const SizedBox(height: AppSpacing.md),
             Expanded(
               child: prov.isLoadingSuggestions
@@ -318,9 +433,10 @@ class _LeftoversPageState extends State<_LeftoversPage> {
                       ? Center(
                           child: Text(
                             'Aucune suggestion pour l’instant',
-                            style: Theme.of(context).textTheme.bodyMedium?.withColor(
-                                  Theme.of(context).colorScheme.onSurfaceVariant,
-                                ),
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodyMedium
+                                ?.withColor(AppColors.textMuted),
                           ),
                         )
                       : ListView.builder(
@@ -330,7 +446,8 @@ class _LeftoversPageState extends State<_LeftoversPage> {
                             final r = suggested[index];
                             return RecipeCard(
                               recipe: r,
-                              onTap: () => context.push('${AppRoutes.recipeDetail}/${r.id}'),
+                              onTap: () => context
+                                  .push('${AppRoutes.recipeDetail}/${r.id}'),
                             );
                           },
                         ),

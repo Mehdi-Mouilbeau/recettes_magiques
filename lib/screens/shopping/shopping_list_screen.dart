@@ -68,6 +68,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         title: Text('Liste de courses', style: context.textStyles.titleLarge?.bold),
         actions: [

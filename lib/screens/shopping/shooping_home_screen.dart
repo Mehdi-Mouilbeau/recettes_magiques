@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:recette_magique/providers/shooping_profider.dart';
+import 'package:recette_magique/providers/shopping_profider.dart';
 import 'package:flutter/services.dart';
 import 'package:recette_magique/services/shopping_list_service.dart';
 import 'package:recette_magique/theme.dart';
@@ -48,6 +48,7 @@ class _ShoppingHomeScreenState extends State<ShoppingHomeScreen> {
     final items = prov.aggregatedItems;
     final hasSelection = prov.selectedRecipes.isNotEmpty;
     return Scaffold(
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         title: Text('Courses', style: context.textStyles.titleLarge?.bold),
         actions: [
