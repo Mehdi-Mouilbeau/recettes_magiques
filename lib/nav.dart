@@ -222,9 +222,12 @@ class _RootShell extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-      extendBodyBehindAppBar: true,
-      extendBody: true,
+
+      // ✅ IMPORTANT: empêche le contenu d'aller sous la navbar
+      extendBody: false,
+
       body: child,
+
       bottomNavigationBar: SafeArea(
         top: false,
         child: Padding(
@@ -235,7 +238,6 @@ class _RootShell extends StatelessWidget {
               filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
               child: Container(
                 decoration: BoxDecoration(
-                  // ✅ glass
                   color: AppColors.card.withOpacity(0.60),
                   borderRadius: BorderRadius.circular(AppRadius.xl),
                   border: Border.all(color: AppColors.border),
@@ -300,7 +302,6 @@ class _LeftoversPageState extends State<_LeftoversPage> {
     if (_didLoad) return;
     _didLoad = true;
 
-    // ✅ important : décaler après le 1er frame pour éviter notifyListeners pendant build
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
 
@@ -365,7 +366,7 @@ class _LeftoversPageState extends State<_LeftoversPage> {
       backgroundColor: Colors.transparent,
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-        backgroundColor: Colors.transparent, // ✅
+        backgroundColor: Colors.transparent,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
@@ -378,6 +379,8 @@ class _LeftoversPageState extends State<_LeftoversPage> {
         ],
       ),
       body: Padding(
+        // ✅ plus besoin de gérer un énorme padding bottom ici :
+        // le Shell ajoute déjà un padding global pour éviter la navbar.
         padding: AppSpacing.paddingMd.copyWith(
           top: AppSpacing.paddingMd.top +
               kToolbarHeight +

@@ -15,47 +15,90 @@ admin.initializeApp();
 const GEMINI_API_KEY = defineSecret("GEMINI_API_KEY");
 
 /**
- * Helper: génère une image (base64) via Imagen (predict endpoint)
- * Retourne: { b64, mimeType }
+ * Build a robust food-only prompt.
+ * strict=false: normal
+ * strict=true: extra locked-down
  */
-async function generateImageBase64({ title, category, ingredients }) {
-  const ing = Array.isArray(ingredients)
-    ? ingredients
-        .map((x) => String(x || "").trim())
-        .filter(Boolean)
-        .slice(0, 6)
-    : [];
+function buildPrompt({ title, category, ingredients, strict = false }) {
+  const safeTitle = String(title || "").trim().replace(/\s+/g, " ").slice(0, 80);
+  const cat = String(category || "").trim().toLowerCase();
 
-  const safeTitle = String(title || "")
-    .trim()
-    .slice(0, 80);
-  const cat = String(category || "")
-    .trim()
-    .toLowerCase();
+  // If OCR title looks noisy, don't push it (prevents poster/cover generations)
+  const titleLooksWeird =
+    safeTitle.length < 4 ||
+    /[^a-zA-ZÀ-ÿ0-9'’\-\s]/.test(safeTitle) ||
+    (safeTitle.match(/[A-Z]/g)?.length || 0) > safeTitle.length * 0.7;
 
-  const promptText = [
-    //  Ancrage fort: C'EST UNE PHOTO CULINAIRE RÉALISTE
-    `Photorealistic food photography of the finished dish (edible meal) for the recipe "${safeTitle}".`,
+  const dishName = titleLooksWeird ? "" : `Dish name: "${safeTitle}".`;
+
+  // Normalize ambiguous ingredients (ex: "piment oiseau" -> avoid "oiseau" => birds)
+  const normalizeIngredient = (s) => {
+    let t = String(s || "").trim().toLowerCase();
+    t = t.replace(/\bpiment\s+oiseau\b/g, "small red chili pepper");
+    t = t.replace(/\boiseau(x)?\b/g, ""); // remove the trigger word entirely
+    t = t.replace(/[()]/g, " ");
+    t = t.replace(/\s+/g, " ").trim();
+    return t;
+  };
+
+  // Filter ingredients that don't help visual grounding
+  const STOP = new Set([
+    "sel",
+    "poivre",
+    "eau",
+    "huile",
+    "huile d'olive",
+    "huile de pépins de raisin",
+    "vinaigre",
+    "sucre",
+    "farine",
+  ]);
+
+  const ing = (Array.isArray(ingredients) ? ingredients : [])
+    .map(normalizeIngredient)
+    .filter(Boolean)
+    .filter((x) => !STOP.has(x))
+    .slice(0, 5);
+
+  const base = [
+    // Strong anchor: must be an edible dish photo
+    "Photorealistic food photography of a real cooked dish (edible meal).",
+    dishName,
     cat ? `Dish type: ${cat}.` : "",
-    ing.length ? `Key visible ingredients: ${ing.join(", ")}.` : "",
+    ing.length ? `Visible key ingredients in the dish: ${ing.join(", ")}.` : "",
 
-    //  Contraintes de cadrage/plating pour éviter paysages / affiches
-    "Single plated dish as the main subject, centered in frame, on a ceramic plate or bowl.",
+    // Plating constraints to avoid landscapes/posters
+    "Single plated dish as the main subject, centered in frame, on a ceramic plate or bowl, on a table.",
     "Three-quarter angle (about 45 degrees), shallow depth of field, DSLR look, 50mm lens, f/2.8, realistic lighting.",
     "Natural soft daylight, subtle shadows, true-to-life colors, high detail, appetizing texture, slight steam if hot.",
     "Simple neutral background (kitchen table), minimal props only (e.g., fork), no busy scenery.",
 
-    //  Anti-texte/anti-overlay très explicite
+    // Strict bans
     "ABSOLUTELY NO text of any kind: no letters, no words, no subtitles, no captions, no labels, no menu, no typography.",
     "No logos, no watermarks, no branding, no packaging, no book pages, no screenshots, no UI elements.",
     "No people, no hands, no faces, no animals.",
     "Do not generate landscapes, buildings, islands, castles, posters, banners, or graphic designs — only the plated food photo.",
-  ]
-    .filter(Boolean)
-    .join(" ");
+  ].filter(Boolean);
 
-  // ✅ Endpoint correct (predict)
-  // Tu peux changer le modèle si besoin
+  if (!strict) return base.join(" ");
+
+  // Strict mode: even more locked down
+  const strictAdd = [
+    "Food-only packshot: image must contain ONLY the plated dish and a neutral tabletop background.",
+    "No decorative scenery, no nature, no architecture, no fashion, no portraits.",
+    "If uncertain, generate a simple realistic plated dish photo rather than anything else.",
+  ];
+
+  return base.concat(strictAdd).filter(Boolean).join(" ");
+}
+
+/**
+ * Helper: generates an image (base64) via Imagen predict endpoint.
+ * Returns: { b64, mimeType }
+ */
+async function generateImageBase64({ title, category, ingredients, strict = false }) {
+  const promptText = buildPrompt({ title, category, ingredients, strict });
+
   const model = "imagen-4.0-generate-001";
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:predict`;
 
@@ -96,7 +139,65 @@ async function generateImageBase64({ title, category, ingredients }) {
 }
 
 /**
- *  1) HTTP: Transforme texte OCR -> JSON recette structurée
+ * Validator: uses Gemini Vision as a strict judge.
+ * Returns: { ok: boolean, reason: string }
+ */
+async function validateGeneratedImage({ b64, title, category, ingredients }) {
+  const { GoogleGenAI } = require("@google/genai");
+  const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY.value() });
+
+  const prompt = `
+You are a strict image quality checker for a recipe app.
+Return ONLY JSON: {"ok": boolean, "reason": string}
+
+Requirements for ok=true:
+- The image clearly shows a plated cooked food dish (edible meal).
+- NO visible text/letters/typography anywhere.
+- NO people, NO animals, NO landscapes, NO buildings, NO posters/covers/UI, NO fashion product photos.
+- Should look like photorealistic food photography.
+
+Recipe context:
+title: ${String(title || "").slice(0, 120)}
+category: ${String(category || "")}
+ingredients: ${(Array.isArray(ingredients) ? ingredients : []).slice(0, 12).join(", ")}
+`;
+
+  const result = await ai.models.generateContent({
+    model: "gemini-2.0-flash",
+    contents: [
+      {
+        role: "user",
+        parts: [
+          { text: prompt },
+          {
+            inlineData: {
+              // Imagen returns png bytes; even if format differs, the judge generally still works.
+              mimeType: "image/png",
+              data: b64,
+            },
+          },
+        ],
+      },
+    ],
+  });
+
+  const out = result?.text || "";
+  let json;
+  try {
+    json = JSON.parse(out);
+  } catch {
+    const m = out.match(/\{[\s\S]*\}/);
+    json = m ? JSON.parse(m[0]) : { ok: false, reason: "Validator returned non-JSON" };
+  }
+
+  return {
+    ok: Boolean(json.ok),
+    reason: String(json.reason || "").slice(0, 200),
+  };
+}
+
+/**
+ * 1) HTTP: OCR text -> structured recipe JSON
  */
 exports.processRecipe = onRequest(
   {
@@ -115,7 +216,6 @@ exports.processRecipe = onRequest(
         return res.status(400).json({ error: "Missing or invalid 'text'." });
       }
 
-      // Tu utilises déjà @google/genai dans ton code (OK)
       const { GoogleGenAI } = require("@google/genai");
       const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY.value() });
 
@@ -173,8 +273,8 @@ Texte OCR:
 );
 
 /**
- *  3) OPTION B (background): Trigger Firestore
- * Quand une recette est créée -> génère l'image + upload Storage + update Firestore.imageUrl
+ * 3) Firestore trigger: on recipe create -> generate image -> upload -> set imageUrl
+ * With safety: validate image; if rejected, retry once with stricter prompt.
  */
 exports.generateRecipeImageOnCreate = onDocumentCreated(
   {
@@ -191,7 +291,7 @@ exports.generateRecipeImageOnCreate = onDocumentCreated(
     const recipeId = event.params.recipeId;
     const data = snap.data() || {};
 
-    //  Anti double-run
+    // Anti double-run
     if (data.imageUrl) {
       logger.info("Image already exists, skipping", { recipeId });
       return;
@@ -207,7 +307,7 @@ exports.generateRecipeImageOnCreate = onDocumentCreated(
       return;
     }
 
-    // statut (optionnel mais recommandé pour ton UI)
+    // status (optional but useful for UI)
     await snap.ref.set(
       {
         imageStatus: "processing",
@@ -217,23 +317,52 @@ exports.generateRecipeImageOnCreate = onDocumentCreated(
     );
 
     try {
-      // 1) Générer base64
-      const { b64 } = await generateImageBase64({
-        title,
-        category,
-        ingredients,
-      });
+      // 1) Generate + validate (up to 2 attempts)
+      let b64 = null;
+      let lastReason = "";
+
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        const strict = attempt === 2;
+
+        const gen = await generateImageBase64({
+          title,
+          category,
+          ingredients,
+          strict,
+        });
+
+        const check = await validateGeneratedImage({
+          b64: gen.b64,
+          title,
+          category,
+          ingredients,
+        });
+
+        if (check.ok) {
+          b64 = gen.b64;
+          break;
+        }
+
+        lastReason = check.reason || "rejected";
+        logger.warn(`Image rejected (attempt ${attempt})`, {
+          recipeId,
+          reason: lastReason,
+        });
+      }
+
+      if (!b64) {
+        throw new Error(`AI image rejected twice: ${lastReason}`);
+      }
 
       const inputBuffer = Buffer.from(b64, "base64");
 
-      //  1bis) Optimisation: resize + WebP
-      // 512x512 est un super compromis perf/qualité pour une app
+      // 1bis) Optimize: resize + WebP
       const webpBuffer = await sharp(inputBuffer)
         .resize(512, 512, { fit: "cover" })
-        .webp({ quality: 78 }) // tu peux ajuster 70-85
+        .webp({ quality: 78 })
         .toBuffer();
 
-      // 2) Upload Storage (image optimisée)
+      // 2) Upload to Storage
       const bucket = admin.storage().bucket();
       const filePath = `recipes/${userId}/${recipeId}/ai.webp`;
       const file = bucket.file(filePath);
@@ -246,7 +375,7 @@ exports.generateRecipeImageOnCreate = onDocumentCreated(
         },
       });
 
-      // 3) Générer une download URL Firebase (token)
+      // 3) Create download URL
       const token = crypto.randomUUID();
       await file.setMetadata({
         metadata: {
