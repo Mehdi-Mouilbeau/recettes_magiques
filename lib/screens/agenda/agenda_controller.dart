@@ -8,51 +8,13 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:recette_magique/models/recipe_model.dart';
 import 'package:recette_magique/providers/recipe_provider.dart';
 
-enum MealType { lunch, dinner, dessert, snack, other }
+enum MealType { lunch, dinner }
 
 class PlannedMeal {
   final Recipe recipe;
   final int persons;
-  final MealType type;
-  final String? customLabel;
 
-  const PlannedMeal({
-    required this.recipe,
-    required this.persons,
-    required this.type,
-    this.customLabel,
-  });
-
-  String get label {
-    final c = customLabel?.trim();
-    if (c != null && c.isNotEmpty) return c;
-    switch (type) {
-      case MealType.lunch:
-        return 'Déjeuner';
-      case MealType.dinner:
-        return 'Dîner';
-      case MealType.dessert:
-        return 'Dessert';
-      case MealType.snack:
-        return 'Goûter';
-      case MealType.other:
-        return 'Repas';
-    }
-  }
-}
-
-class RecipePickResult {
-  final Recipe recipe;
-  final int persons;
-  final MealType type;
-  final String? customLabel;
-
-  const RecipePickResult({
-    required this.recipe,
-    required this.persons,
-    required this.type,
-    this.customLabel,
-  });
+  const PlannedMeal({required this.recipe, required this.persons});
 }
 
 class AgendaController {
@@ -60,12 +22,11 @@ class AgendaController {
 
   final VoidCallback notify;
 
-  static const _storageKey = 'agenda_plans_v1';
+  static const _storageKey = 'agenda_plans_v2';
 
   DateTime _weekStart = DateTime.now();
-  final Map<DateTime, List<PlannedMeal>> _plans = {};
 
-  DateTime get weekStart => _weekStart;
+  final Map<DateTime, Map<MealType, PlannedMeal>> _plans = {};
 
   DateTime _dayKey(DateTime d) => DateTime(d.year, d.month, d.day);
 
@@ -98,53 +59,48 @@ class AgendaController {
     notify();
   }
 
-  List<PlannedMeal> mealsFor(DateTime day) {
+  PlannedMeal? mealFor(DateTime day, MealType type) {
     final k = _dayKey(day);
-    return _plans[k] ?? <PlannedMeal>[];
+    return _plans[k]?[type];
   }
 
-  Future<void> addMeal(BuildContext context, DateTime day, PlannedMeal meal) async {
+  Future<void> setMeal(
+    BuildContext context, {
+    required DateTime day,
+    required MealType type,
+    required Recipe recipe,
+    required int persons,
+  }) async {
+    if (recipe.id == null) return;
+
     final k = _dayKey(day);
-    final list = [...(_plans[k] ?? <PlannedMeal>[])];
-    list.add(meal);
-    _plans[k] = list;
+    final map = {...(_plans[k] ?? <MealType, PlannedMeal>{})};
+
+    map[type] = PlannedMeal(recipe: recipe, persons: persons.clamp(1, 24));
+    _plans[k] = map;
+
     notify();
     await _save();
   }
 
-  Future<void> removeMeal(DateTime day, int index) async {
+  Future<void> removeMeal(DateTime day, MealType type) async {
     final k = _dayKey(day);
-    final list = [...(_plans[k] ?? <PlannedMeal>[])];
-    if (index < 0 || index >= list.length) return;
-    list.removeAt(index);
-    if (list.isEmpty) {
+    final map = {...(_plans[k] ?? <MealType, PlannedMeal>{})};
+
+    map.remove(type);
+    if (map.isEmpty) {
       _plans.remove(k);
     } else {
-      _plans[k] = list;
+      _plans[k] = map;
     }
+
     notify();
     await _save();
-  }
-
-  Future<void> clearDay(DateTime day) async {
-    _plans.remove(_dayKey(day));
-    notify();
-    await _save();
-  }
-
-  Future<void> clearAll() async {
-    _plans.clear();
-    notify();
-    await _save();
-  }
-
-  List<Recipe> allRecipes(BuildContext context) {
-    return context.read<RecipeProvider>().recipes;
   }
 
   bool get canExport {
     for (final entry in _plans.entries) {
-      for (final m in entry.value) {
+      for (final m in entry.value.values) {
         if (m.recipe.id != null) return true;
       }
     }
@@ -159,7 +115,7 @@ class AgendaController {
     final Map<String, int> personsByRecipe = {};
 
     for (final entry in _plans.entries) {
-      for (final m in entry.value) {
+      for (final m in entry.value.values) {
         final id = m.recipe.id;
         if (id == null) continue;
         byId[id] = m.recipe;
@@ -169,14 +125,15 @@ class AgendaController {
 
     for (final e in personsByRecipe.entries) {
       final recipe = byId[e.key];
-      if (recipe != null) {
-        shopping.addRecipe(recipe, e.value);
-      }
+      if (recipe != null) shopping.addRecipe(recipe, e.value);
     }
 
     await shopping.persist();
-
     notify();
+  }
+
+  List<Recipe> allRecipes(BuildContext context) {
+    return context.read<RecipeProvider>().recipes;
   }
 
   String weekRangeLabel() {
@@ -254,15 +211,24 @@ class AgendaController {
     for (final entry in _plans.entries) {
       final day = entry.key;
       final iso = _iso(day);
-      data[iso] = entry.value
-          .where((m) => m.recipe.id != null)
-          .map((m) => {
-                'recipeId': m.recipe.id,
-                'persons': m.persons,
-                'type': m.type.index,
-                'customLabel': m.customLabel,
-              })
-          .toList();
+
+      final lunch = entry.value[MealType.lunch];
+      final dinner = entry.value[MealType.dinner];
+
+      data[iso] = {
+        'lunch': lunch == null
+            ? null
+            : {
+                'recipeId': lunch.recipe.id,
+                'persons': lunch.persons,
+              },
+        'dinner': dinner == null
+            ? null
+            : {
+                'recipeId': dinner.recipe.id,
+                'persons': dinner.persons,
+              },
+      };
     }
 
     await prefs.setString(_storageKey, jsonEncode(data));
@@ -286,41 +252,41 @@ class AgendaController {
 
     for (final entry in decoded.entries) {
       final dayIso = entry.key;
-      final listRaw = entry.value;
+      final val = entry.value;
 
       final day = _parseIso(dayIso);
       if (day == null) continue;
-      if (listRaw is! List) continue;
+      if (val is! Map) continue;
 
-      final meals = <PlannedMeal>[];
+      final lunchRaw = val['lunch'];
+      final dinnerRaw = val['dinner'];
 
-      for (final item in listRaw) {
-        if (item is! Map) continue;
+      final map = <MealType, PlannedMeal>{};
 
-        final rid = item['recipeId'];
-        if (rid is! String) continue;
-
-        final recipe = byId[rid];
-        if (recipe == null) continue;
-
-        final persons = (item['persons'] is int) ? item['persons'] as int : 4;
-        final typeIndex = (item['type'] is int) ? item['type'] as int : 0;
-        final customLabel = (item['customLabel'] is String) ? item['customLabel'] as String : null;
-
-        final type = MealType.values[(typeIndex).clamp(0, MealType.values.length - 1)];
-
-        meals.add(
-          PlannedMeal(
-            recipe: recipe,
-            persons: persons.clamp(1, 24),
-            type: type,
-            customLabel: customLabel,
-          ),
-        );
+      if (lunchRaw is Map) {
+        final id = lunchRaw['recipeId'];
+        final persons = lunchRaw['persons'];
+        if (id is String && byId[id] != null) {
+          map[MealType.lunch] = PlannedMeal(
+            recipe: byId[id]!,
+            persons: (persons is int ? persons : 4).clamp(1, 24),
+          );
+        }
       }
 
-      if (meals.isNotEmpty) {
-        _plans[_dayKey(day)] = meals;
+      if (dinnerRaw is Map) {
+        final id = dinnerRaw['recipeId'];
+        final persons = dinnerRaw['persons'];
+        if (id is String && byId[id] != null) {
+          map[MealType.dinner] = PlannedMeal(
+            recipe: byId[id]!,
+            persons: (persons is int ? persons : 4).clamp(1, 24),
+          );
+        }
+      }
+
+      if (map.isNotEmpty) {
+        _plans[_dayKey(day)] = map;
       }
     }
   }
