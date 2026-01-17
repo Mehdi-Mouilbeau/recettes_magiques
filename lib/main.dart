@@ -4,10 +4,11 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
 
 import 'package:firebase_analytics/firebase_analytics.dart';
+import 'package:recette_magique/providers/agenda_provider.dart';
 
 import 'package:recette_magique/providers/auth_provider.dart';
+import 'package:recette_magique/providers/ingredients_provider.dart';
 import 'package:recette_magique/providers/recipe_provider.dart';
-import 'package:recette_magique/providers/leftovers_provider.dart';
 import 'package:recette_magique/providers/shopping_profider.dart';
 
 import 'package:recette_magique/services/backend_config.dart';
@@ -55,13 +56,14 @@ class MyApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => RecipeProvider()),
-        ChangeNotifierProvider(create: (_) => LeftoversProvider()),
+        ChangeNotifierProvider(create: (_) => IngredientsProvider()),
         ChangeNotifierProvider(create: (_) => ShoppingProvider()),
+        ChangeNotifierProvider(create: (_) => AgendaProvider()),
       ],
       child: Builder(
         builder: (context) {
           return MaterialApp.router(
-            title: 'Recette Magique',
+            title: 'RECETTES Dans Ta Poche',
             debugShowCheckedModeBanner: false,
             routerConfig: AppRouter.buildRouter(
               analyticsObserver: analyticsObserver,

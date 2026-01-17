@@ -12,6 +12,8 @@ import 'package:recette_magique/services/ai_service.dart';
 import 'package:recette_magique/models/recipe_model.dart';
 
 /// Écran de scan de recette avec OCR
+/// ✅ Version "Shell-friendly" : PAS de Scaffold ici.
+/// Le Scaffold est celui du ShellRoute (_RootShell).
 class ScanScreen extends StatefulWidget {
   const ScanScreen({super.key});
 
@@ -203,149 +205,205 @@ class _ScanScreenState extends State<ScanScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      appBar: AppBar(
-        title: const Text(
-          'Scanner une recette',
-          style: TextStyle(fontWeight: FontWeight.w700),
-        ),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.pop(),
-        ),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.blueGrey.shade50,
-                borderRadius: BorderRadius.circular(12),
+    final bottomInset = MediaQuery.of(context).padding.bottom;
+
+    return SafeArea(
+      bottom: false, // ✅ important : évite la bande vide + artefact "rectangle"
+      child: CustomScrollView(
+        slivers: [
+          SliverAppBar(
+            pinned: true,
+            backgroundColor: Colors.transparent,
+            surfaceTintColor: Colors.transparent,
+            elevation: 0,
+            scrolledUnderElevation: 0,
+            title: const Text(
+              'Scanner une recette',
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back),
+              onPressed: () => context.pop(),
+            ),
+          ),
+
+          SliverPadding(
+            padding: const EdgeInsets.all(24),
+            sliver: SliverToBoxAdapter(
+              child: _ScanBody(
+                imagePath: _imagePath,
+                imageBytes: _imageBytes,
+                extractedText: _extractedText,
+                isProcessing: _isProcessing,
+                processingStep: _processingStep,
+                onPickCamera: () => _pickImage(ImageSource.camera),
+                onPickGallery: () => _pickImage(ImageSource.gallery),
+                onProcess: _processImage,
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
-                  Row(
-                    children: [
-                      Icon(Icons.info_outline),
-                      SizedBox(width: 8),
-                      Text(
-                        'Comment ça marche ?',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: 8),
+            ),
+          ),
+
+          // ✅ espace pour que le contenu ne soit pas masqué par la navbar du Shell
+          SliverToBoxAdapter(
+            child: SizedBox(height: 90 + bottomInset),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ScanBody extends StatelessWidget {
+  final String? imagePath;
+  final Uint8List? imageBytes;
+  final String? extractedText;
+  final bool isProcessing;
+  final String processingStep;
+
+  final VoidCallback onPickCamera;
+  final VoidCallback onPickGallery;
+  final VoidCallback onProcess;
+
+  const _ScanBody({
+    required this.imagePath,
+    required this.imageBytes,
+    required this.extractedText,
+    required this.isProcessing,
+    required this.processingStep,
+    required this.onPickCamera,
+    required this.onPickGallery,
+    required this.onProcess,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.blueGrey.shade50,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: const [
+              Row(
+                children: [
+                  Icon(Icons.info_outline),
+                  SizedBox(width: 8),
                   Text(
-                    '1. Prenez une photo claire de la recette\n'
-                    '2. Le texte sera extrait automatiquement\n'
-                    '3. L\'IA structurera la recette\n'
-                    '4. Vérifiez et modifiez si nécessaire',
+                    'Comment ça marche ?',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
                   ),
                 ],
               ),
-            ),
-            const SizedBox(height: 24),
-
-            FilledButton.icon(
-              onPressed: _isProcessing ? null : () => _pickImage(ImageSource.camera),
-              icon: const Icon(Icons.camera_alt_outlined),
-              label: const Text('Prendre une photo'),
-              style: FilledButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            OutlinedButton.icon(
-              onPressed: _isProcessing ? null : () => _pickImage(ImageSource.gallery),
-              icon: const Icon(Icons.photo_library_outlined),
-              label: const Text('Choisir depuis la galerie'),
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
-
-            if (_imagePath != null) ...[
-              const SizedBox(height: 24),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: _imageBytes != null
-                    ? Image.memory(
-                        _imageBytes!,
-                        height: 300,
-                        width: double.infinity,
-                        fit: BoxFit.cover,
-                      )
-                    : Container(
-                        height: 300,
-                        color: Colors.grey.shade200,
-                        child: const Center(
-                          child: Icon(Icons.image_outlined, size: 48),
-                        ),
-                      ),
-              ),
-              const SizedBox(height: 20),
-
-              FilledButton(
-                onPressed: _isProcessing ? null : _processImage,
-                style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: _isProcessing
-                    ? Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          ),
-                          const SizedBox(width: 16),
-                          Text(_processingStep),
-                        ],
-                      )
-                    : const Text('Traiter la recette'),
+              SizedBox(height: 8),
+              Text(
+                '1. Prenez une photo claire de la recette\n'
+                '2. Le texte sera extrait automatiquement\n'
+                '3. L\'IA structurera la recette\n'
+                '4. Vérifiez et modifiez si nécessaire',
               ),
             ],
-
-            if (_extractedText != null && !_isProcessing) ...[
-              const SizedBox(height: 24),
-              const Text(
-                'Texte extrait',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade200,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  _extractedText!,
-                  style: const TextStyle(fontSize: 12),
-                  maxLines: 10,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ],
+          ),
         ),
-      ),
+        const SizedBox(height: 24),
+
+        FilledButton.icon(
+          onPressed: isProcessing ? null : onPickCamera,
+          icon: const Icon(Icons.camera_alt_outlined),
+          label: const Text('Prendre une photo'),
+          style: FilledButton.styleFrom(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        OutlinedButton.icon(
+          onPressed: isProcessing ? null : onPickGallery,
+          icon: const Icon(Icons.photo_library_outlined),
+          label: const Text('Choisir depuis la galerie'),
+          style: OutlinedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        ),
+
+        if (imagePath != null) ...[
+          const SizedBox(height: 24),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: imageBytes != null
+                ? Image.memory(
+                    imageBytes!,
+                    height: 300,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                  )
+                : Container(
+                    height: 300,
+                    color: Colors.grey.shade200,
+                    child: const Center(
+                      child: Icon(Icons.image_outlined, size: 48),
+                    ),
+                  ),
+          ),
+          const SizedBox(height: 20),
+
+          FilledButton(
+            onPressed: isProcessing ? null : onProcess,
+            style: FilledButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: isProcessing
+                ? Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                      const SizedBox(width: 16),
+                      Flexible(child: Text(processingStep)),
+                    ],
+                  )
+                : const Text('Traiter la recette'),
+          ),
+        ],
+
+        if (extractedText != null && !isProcessing) ...[
+          const SizedBox(height: 24),
+          const Text(
+            'Texte extrait',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade200,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              extractedText!,
+              style: const TextStyle(fontSize: 12),
+              maxLines: 10,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ],
     );
   }
 }

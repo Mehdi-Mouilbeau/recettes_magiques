@@ -1,18 +1,16 @@
-import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:recette_magique/providers/auth_provider.dart';
-import 'package:recette_magique/providers/recipe_provider.dart';
-import 'package:recette_magique/providers/leftovers_provider.dart';
 import 'package:recette_magique/models/recipe_model.dart';
-import 'package:recette_magique/screens/shopping/shopping_list_screen.dart';
+import 'package:recette_magique/providers/recipe_provider.dart';
+import 'package:recette_magique/providers/ingredients_provider.dart';
 import 'package:recette_magique/theme.dart';
 
 import 'package:recette_magique/ui/widgets/category_tile.dart';
 import 'package:recette_magique/ui/widgets/recipe_grid_card.dart';
+
+import 'home_controller.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -22,378 +20,155 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  VoidCallback? _authStateListener;
-  AuthProvider? _authProvider;
-
-  final TextEditingController _ingredientsController = TextEditingController();
-
-  bool _selectionMode = false;
-  final Set<String> _selected = {};
-
-  RecipeCategory? _category;
-  bool _showFavoritesOnly = false;
+  late final HomeController c;
 
   @override
   void initState() {
     super.initState();
+    c = HomeController(notify: () {
+      if (mounted) setState(() {});
+    });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-
-      _authProvider = context.read<AuthProvider>();
-      final recipeProvider = context.read<RecipeProvider>();
-      final leftoversProvider = context.read<LeftoversProvider>();
-
-      _authStateListener = () {
-        final user = _authProvider?.currentUser;
-        if (user != null) {
-          recipeProvider.loadUserRecipes(user.uid);
-          leftoversProvider.load(user.uid);
-        }
-      };
-
-      _authProvider!.addListener(_authStateListener!);
-
-      final user = _authProvider!.currentUser;
-      if (user != null) {
-        recipeProvider.loadUserRecipes(user.uid);
-        leftoversProvider.load(user.uid);
-      }
+      c.init(context);
     });
-  }
-
-  void _loadRecipes() {
-    final auth = _authProvider ?? context.read<AuthProvider>();
-    final recipeProvider = context.read<RecipeProvider>();
-    final user = auth.currentUser;
-    if (user != null) recipeProvider.loadUserRecipes(user.uid);
-  }
-
-  void _onSearchIngredients() {
-    final raw = _ingredientsController.text.trim();
-    final auth = _authProvider ?? context.read<AuthProvider>();
-    final user = auth.currentUser;
-    if (user == null) return;
-
-    final list = raw
-        .split(RegExp(r'[;,\n]'))
-        .map((e) => e.trim())
-        .where((e) => e.isNotEmpty)
-        .toList();
-
-    context.read<RecipeProvider>().searchByIngredients(user.uid, list);
-  }
-
-  void _resetSearch() {
-    _ingredientsController.clear();
-    _loadRecipes();
-  }
-
-  Future<void> _signOut() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Déconnexion'),
-        content: const Text('Voulez-vous vraiment vous déconnecter ?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Annuler'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Déconnecter'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed == true && mounted) {
-      await context.read<AuthProvider>().signOut();
-      if (!mounted) return;
-      context.go('/login');
-    }
-  }
-
-  void _toggleCartMode() {
-    setState(() {
-      _selectionMode = !_selectionMode;
-      if (!_selectionMode) _selected.clear();
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final prov = context.watch<RecipeProvider>();
-    final all = prov.filteredRecipes;
-
-    final byCategory = _category == null
-        ? all
-        : all.where((r) => r.category == _category).toList();
-
-    final recipes = _showFavoritesOnly
-        ? byCategory.where((r) => r.isFavorite).toList()
-        : byCategory;
-
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-
-      // ⚠️ Si ton gradient est déjà appliqué globalement via MaterialApp.builder,
-      // tu peux supprimer tout le Container ci-dessous.
-      body: Container(
-        decoration: const BoxDecoration(
-          // ✅ idéalement remplace par: gradient: AppColors.bgGradient,
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [AppColors.bgTop, AppColors.bg],
-          ),
-        ),
-        child: SafeArea(
-          child: CustomScrollView(
-            slivers: [
-              SliverToBoxAdapter(
-                child: _HomeHeader(
-                  onSignOut: _signOut,
-                  selectionMode: _selectionMode,
-                  selectedCount: _selected.length,
-                  onCartPressed: _toggleCartMode,
-                  onConfirm: _selected.isEmpty ? null : _confirmSelection,
-                ),
-              ),
-              SliverToBoxAdapter(
-                child: _CategoryRow(
-                  category: _category,
-                  onChange: _setCategory,
-                ),
-              ),
-              const SliverToBoxAdapter(child: SizedBox(height: 14)),
-              SliverToBoxAdapter(
-                child: _SearchBar(
-                  controller: _ingredientsController,
-                  onSearch: _onSearchIngredients,
-                  onReset: _resetSearch,
-                ),
-              ),
-              const SliverToBoxAdapter(child: SizedBox(height: 18)),
-              SliverToBoxAdapter(
-                child: _SectionTitle(
-                  showFavoritesOnly: _showFavoritesOnly,
-                  onToggleFavorites: () =>
-                      setState(() => _showFavoritesOnly = !_showFavoritesOnly),
-                ),
-              ),
-              const SliverToBoxAdapter(child: SizedBox(height: 12)),
-
-              if (recipes.isEmpty)
-                SliverFillRemaining(
-                  hasScrollBody: false,
-                  child: _EmptyState(favoritesOnly: _showFavoritesOnly),
-                )
-              else
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-                  sliver: SliverGrid(
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      mainAxisSpacing: 14,
-                      crossAxisSpacing: 14,
-                      childAspectRatio: 0.78,
-                    ),
-                    delegate: SliverChildBuilderDelegate(
-                      (context, index) {
-                        final r = recipes[index];
-                        final isSelected =
-                            r.id != null && _selected.contains(r.id);
-
-                        return RecipeGridCard(
-                          recipe: r,
-                          selectionMode: _selectionMode,
-                          selected: isSelected,
-                          onTap: () {
-                            if (_selectionMode) {
-                              _toggleSelected(r);
-                            } else {
-                              context.push('/recipe/${r.id}');
-                            }
-                          },
-                          onSelect: () => _toggleSelected(r),
-                          onToggleFavorite: () =>
-                              context.read<RecipeProvider>().toggleFavorite(r),
-                        );
-                      },
-                      childCount: recipes.length,
-                    ),
-                  ),
-                ),
-
-              const SliverToBoxAdapter(child: SizedBox(height: 90)),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _setCategory(RecipeCategory? value) {
-    setState(() => _category = value);
-  }
-
-  void _toggleSelected(Recipe recipe) {
-    if (recipe.id == null) return;
-    setState(() {
-      if (_selected.contains(recipe.id)) {
-        _selected.remove(recipe.id);
-      } else {
-        _selected.add(recipe.id!);
-      }
-    });
-  }
-
-  Future<void> _confirmSelection() async {
-    final all = context.read<RecipeProvider>().recipes;
-    final selected =
-        all.where((r) => r.id != null && _selected.contains(r.id)).toList();
-    if (selected.isEmpty) return;
-
-    Map<String, int> personsByRecipe = {
-      for (final r in selected) r.id!: (r.servings ?? 4).clamp(1, 24),
-    };
-
-    final confirmed = await showModalBottomSheet<bool>(
-  context: context,
-  useRootNavigator: true, // ✅ au-dessus du ShellRoute / navbar
-  isScrollControlled: true, // ✅ évite modale coupée
-  backgroundColor: Colors.transparent, // ✅ pour gérer nous-mêmes le container arrondi
-  builder: (ctx) {
-    return StatefulBuilder(
-      builder: (ctx, setModalState) {
-        final bottomInset = MediaQuery.of(ctx).viewInsets.bottom;
-
-        return SafeArea(
-          child: Padding(
-            padding: EdgeInsets.only(bottom: bottomInset),
-            child: Container(
-              decoration: BoxDecoration(
-                color: Theme.of(ctx).colorScheme.surface,
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(16),
-                ),
-              ),
-              child: DraggableScrollableSheet(
-                expand: false,
-                initialChildSize: 0.55,
-                minChildSize: 0.35,
-                maxChildSize: 0.9,
-                builder: (context, scrollController) {
-                  return SingleChildScrollView(
-                    controller: scrollController,
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Row(
-                          children: [
-                            const Icon(Icons.shopping_cart_outlined),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Personnes par recette',
-                              style: Theme.of(ctx).textTheme.titleLarge,
-                            ),
-                            const Spacer(),
-                            IconButton(
-                              onPressed: () => Navigator.pop(ctx, false),
-                              icon: const Icon(Icons.close),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-
-                        // ✅ LISTE (scrollable via DraggableScrollableSheet)
-                        for (final r in selected) ...[
-                          _PersonsRow(
-                            title: r.title,
-                            value: personsByRecipe[r.id!] ?? (r.servings ?? 4),
-                            onMinus: () {
-                              final id = r.id!;
-                              final current =
-                                  personsByRecipe[id] ?? (r.servings ?? 4);
-                              setModalState(() {
-                                personsByRecipe[id] = max(1, current - 1);
-                              });
-                            },
-                            onPlus: () {
-                              final id = r.id!;
-                              final current =
-                                  personsByRecipe[id] ?? (r.servings ?? 4);
-                              setModalState(() {
-                                personsByRecipe[id] = min(24, current + 1);
-                              });
-                            },
-                          ),
-                          const SizedBox(height: 8),
-                        ],
-
-                        const SizedBox(height: 12),
-                        SizedBox(
-                          width: double.infinity,
-                          child: FilledButton.icon(
-                            onPressed: () => Navigator.pop(ctx, true),
-                            icon: const Icon(Icons.check),
-                            label: const Text('Générer la liste'),
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  },
-);
-
-    if (confirmed == true && mounted) {
-      final allRecipes = context.read<RecipeProvider>().recipes;
-      final selectedRecipes = allRecipes
-          .where((r) => r.id != null && _selected.contains(r.id))
-          .toList();
-
-      setState(() {
-        _selectionMode = false;
-        _selected.clear();
-      });
-
-      context.push(
-        '/shopping',
-        extra: ShoppingListArgs(
-          recipes: selectedRecipes,
-          personsByRecipe: personsByRecipe,
-        ),
-      );
-    }
   }
 
   @override
   void dispose() {
-    if (_authProvider != null && _authStateListener != null) {
-      _authProvider!.removeListener(_authStateListener!);
-    }
-    _authStateListener = null;
-    _ingredientsController.dispose();
+    c.dispose();
     super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final recipes = c.visibleRecipes(context);
+    final ingProv = context.watch<IngredientsProvider>();
+
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      extendBody: false,
+      body: SafeArea(
+        bottom: false,
+        child: CustomScrollView(
+          slivers: [
+            SliverToBoxAdapter(
+              child: _HomeHeader(
+                onSignOut: () => c.signOut(context),
+                selectionMode: c.selectionMode,
+                selectedCount: c.selected.length,
+                onCartPressed: c.toggleCartMode,
+                onConfirm:
+                    c.selected.isEmpty ? null : () => c.confirmSelection(context),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: _CategoryRow(
+                category: c.category,
+                onChange: c.setCategory,
+              ),
+            ),
+            const SliverToBoxAdapter(child: SizedBox(height: 14)),
+            SliverToBoxAdapter(
+              child: _IngredientsSearchBar(
+                controller: c.fieldController,
+                onAdd: () => c.addFromField(context),
+                onClear: () => c.clearItems(context),
+              ),
+            ),
+            const SliverToBoxAdapter(child: SizedBox(height: 10)),
+            SliverToBoxAdapter(
+              child: _IngredientsChips(
+                onDelete: (it) => c.removeItem(context, it),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (ingProv.isLoadingSuggestions)
+                      const LinearProgressIndicator(),
+                    if (ingProv.suggestionsError != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        ingProv.suggestionsError!,
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodyMedium
+                            ?.copyWith(color: Theme.of(context).colorScheme.error),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            const SliverToBoxAdapter(child: SizedBox(height: 14)),
+            SliverToBoxAdapter(
+              child: _SectionTitle(
+                showFavoritesOnly: c.showFavoritesOnly,
+                onToggleFavorites: c.toggleFavoritesOnly,
+              ),
+            ),
+            const SliverToBoxAdapter(child: SizedBox(height: 12)),
+            if (recipes.isEmpty)
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: _EmptyState(
+                  favoritesOnly: c.showFavoritesOnly,
+                  hasIngredients: ingProv.items.isNotEmpty,
+                ),
+              )
+            else
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                sliver: SliverGrid(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    mainAxisSpacing: 14,
+                    crossAxisSpacing: 14,
+                    childAspectRatio: 0.78,
+                  ),
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      final r = recipes[index];
+                      final isSelected =
+                          r.id != null && c.selected.contains(r.id);
+
+                      return RecipeGridCard(
+                        recipe: r,
+                        selectionMode: c.selectionMode,
+                        selected: isSelected,
+                        onTap: () {
+                          if (c.selectionMode) {
+                            c.toggleSelected(r);
+                          } else {
+                            context.push('/recipe/${r.id}');
+                          }
+                        },
+                        onSelect: () => c.toggleSelected(r),
+                        onToggleFavorite: () =>
+                            context.read<RecipeProvider>().toggleFavorite(r),
+                      );
+                    },
+                    childCount: recipes.length,
+                  ),
+                ),
+              ),
+            const SliverToBoxAdapter(child: SizedBox(height: 90)),
+          ],
+        ),
+      ),
+    );
   }
 }
 
 class _HomeHeader extends StatelessWidget {
   final VoidCallback onSignOut;
-
   final bool selectionMode;
   final int selectedCount;
-
   final VoidCallback onCartPressed;
   final VoidCallback? onConfirm;
 
@@ -414,12 +189,10 @@ class _HomeHeader extends StatelessWidget {
         children: [
           Expanded(
             child: Text(
-              'RECETTE MAGIQUE',
+              'RECETTES Dans Ta Poche',
               style: AppTextStyles.brandTitle(),
             ),
           ),
-
-          // 🛒 caddie / fermer
           IconButton(
             tooltip: selectionMode
                 ? 'Quitter la sélection'
@@ -430,8 +203,6 @@ class _HomeHeader extends StatelessWidget {
               color: AppColors.text,
             ),
           ),
-
-          // ✅ valider (uniquement en mode sélection)
           if (selectionMode)
             IconButton(
               tooltip: selectedCount == 0
@@ -444,8 +215,6 @@ class _HomeHeader extends StatelessWidget {
                     selectedCount == 0 ? AppColors.textMuted : AppColors.text,
               ),
             ),
-
-          // 🚪 déconnexion
           IconButton(
             tooltip: 'Déconnexion',
             onPressed: onSignOut,
@@ -482,8 +251,9 @@ class _CategoryRow extends StatelessWidget {
             label: 'Plat',
             icon: Icons.restaurant_menu,
             active: category == RecipeCategory.plat,
-            onTap: () =>
-                onChange(category == RecipeCategory.plat ? null : RecipeCategory.plat),
+            onTap: () => onChange(
+              category == RecipeCategory.plat ? null : RecipeCategory.plat,
+            ),
           ),
           CategoryTile(
             label: 'Dessert',
@@ -507,19 +277,21 @@ class _CategoryRow extends StatelessWidget {
   }
 }
 
-class _SearchBar extends StatelessWidget {
+class _IngredientsSearchBar extends StatelessWidget {
   final TextEditingController controller;
-  final VoidCallback onSearch;
-  final VoidCallback onReset;
+  final VoidCallback onAdd;
+  final VoidCallback onClear;
 
-  const _SearchBar({
+  const _IngredientsSearchBar({
     required this.controller,
-    required this.onSearch,
-    required this.onReset,
+    required this.onAdd,
+    required this.onClear,
   });
 
   @override
   Widget build(BuildContext context) {
+    final prov = context.watch<IngredientsProvider>();
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Container(
@@ -536,12 +308,12 @@ class _SearchBar extends StatelessWidget {
         ),
         child: TextField(
           controller: controller,
-          textInputAction: TextInputAction.search,
-          onSubmitted: (_) => onSearch(),
+          textInputAction: TextInputAction.done,
+          onSubmitted: (_) => onAdd(),
           decoration: InputDecoration(
-            hintText: 'Rechercher',
+            hintText: 'Ajouter un ingrédient (ex: tomates, carottes)',
             hintStyle: const TextStyle(color: AppColors.textMuted),
-            prefixIcon: const Icon(Icons.search, color: AppColors.textMuted),
+            prefixIcon: const Icon(Icons.add, color: AppColors.textMuted),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
               borderSide: BorderSide.none,
@@ -553,20 +325,59 @@ class _SearchBar extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 IconButton(
-                  tooltip: 'Rechercher',
-                  onPressed: onSearch,
-                  icon: const Icon(Icons.arrow_forward, color: AppColors.text),
+                  tooltip: 'Ajouter',
+                  onPressed: prov.isLoadingSuggestions ? null : onAdd,
+                  icon: const Icon(Icons.check_circle, color: AppColors.text),
                 ),
                 IconButton(
-                  tooltip: 'Réinitialiser',
-                  onPressed: onReset,
-                  icon: const Icon(Icons.clear, color: AppColors.text),
+                  tooltip: 'Vider',
+                  onPressed: onClear,
+                  icon: const Icon(Icons.delete_outline, color: AppColors.text),
                 ),
                 const SizedBox(width: 6),
               ],
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _IngredientsChips extends StatelessWidget {
+  final ValueChanged<String> onDelete;
+
+  const _IngredientsChips({required this.onDelete});
+
+  @override
+  Widget build(BuildContext context) {
+    final prov = context.watch<IngredientsProvider>();
+    final items = prov.items;
+
+    if (items.isEmpty) {
+      // return const Padding(
+      //   padding: EdgeInsets.symmetric(horizontal: 16),
+      //   child: Align(
+      //     alignment: Alignment.centerLeft,
+      //     child: Text(
+      //       'Ajoute tes ingrédients pour voir les recettes correspondantes 👇',
+      //     ),
+      //   ),
+      // );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          for (final it in items)
+            Chip(
+              label: Text(it),
+              onDeleted: () => onDelete(it),
+            ),
+        ],
       ),
     );
   }
@@ -617,10 +428,27 @@ class _SectionTitle extends StatelessWidget {
 
 class _EmptyState extends StatelessWidget {
   final bool favoritesOnly;
-  const _EmptyState({required this.favoritesOnly});
+  final bool hasIngredients;
+
+  const _EmptyState({
+    required this.favoritesOnly,
+    required this.hasIngredients,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final title = favoritesOnly
+        ? 'Aucun favori'
+        : hasIngredients
+            ? 'Aucune recette trouvée'
+            : 'Aucune recette';
+
+    final subtitle = favoritesOnly
+        ? 'Ajoutez des recettes en favoris avec le cœur'
+        : hasIngredients
+            ? 'Essaie avec d’autres ingrédients'
+            : 'Scannez votre première recette pour commencer';
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -630,65 +458,16 @@ class _EmptyState extends StatelessWidget {
             const Text('📸', style: TextStyle(fontSize: 80)),
             const SizedBox(height: 16),
             Text(
-              favoritesOnly ? 'Aucun favori' : 'Aucune recette',
+              title,
               style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 8),
             Text(
-              favoritesOnly
-                  ? 'Ajoutez des recettes en favoris avec le cœur'
-                  : 'Scannez votre première recette pour commencer',
+              subtitle,
               textAlign: TextAlign.center,
             ),
           ],
         ),
-      ),
-    );
-  }
-  
-}
-class _PersonsRow extends StatelessWidget {
-  final String title;
-  final int value;
-  final VoidCallback onMinus;
-  final VoidCallback onPlus;
-
-  const _PersonsRow({
-    required this.title,
-    required this.value,
-    required this.onMinus,
-    required this.onPlus,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              title,
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-          ),
-          IconButton(
-            onPressed: onMinus,
-            icon: const Icon(Icons.remove_circle_outline),
-          ),
-          Text(
-            '$value',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          IconButton(
-            onPressed: onPlus,
-            icon: const Icon(Icons.add_circle_outline),
-          ),
-        ],
       ),
     );
   }

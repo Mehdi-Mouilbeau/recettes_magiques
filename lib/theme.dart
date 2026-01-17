@@ -107,9 +107,9 @@ class AppColors {
 /// Typo (centralisée)
 /// --------------------
 class AppTextStyles {
-  // “CACA COOK / RECETTE MAGIQUE” style (fin + letter spacing)
+  // “RECETTES Dans Ta Poche” style (fin + letter spacing)
   static TextStyle brandTitle() => GoogleFonts.inter(
-        fontSize: 34,
+        fontSize: 28,
         letterSpacing: 2,
         fontWeight: FontWeight.w300,
         color: AppColors.text,

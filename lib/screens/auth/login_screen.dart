@@ -92,7 +92,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   const SizedBox(height: 70),
 
                   Text(
-                    'RECETTE MAGIQUE',
+                    'RECETTES Dans Ta Poche',
                     textAlign: TextAlign.center,
                     style: AppTextStyles.brandTitle(),
                   ),

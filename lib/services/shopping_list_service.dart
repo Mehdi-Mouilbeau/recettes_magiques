@@ -8,7 +8,8 @@ class ParsedIngredient {
   final String name; // nom normalisé pour l'agrégation (sans articles, accents)
   final String displayName; // nom pour affichage
   final double? amount;
-  final String? unit; // unités de base: g, ml, pcs (ou null si non quantifiable)
+  final String?
+      unit; // unités de base: g, ml, pcs (ou null si non quantifiable)
   final bool approximated;
   const ParsedIngredient({
     required this.name,
@@ -49,15 +50,17 @@ class ShoppingListService {
     for (final r in recipes) {
       final id = r.id;
       final desiredPersons = id != null ? personsByRecipe[id] : null;
-      final factor = (desiredPersons != null && r.servings != null && r.servings! > 0)
-          ? desiredPersons / r.servings!.toDouble()
-          : 1.0;
+      final factor =
+          (desiredPersons != null && r.servings != null && r.servings! > 0)
+              ? desiredPersons / r.servings!.toDouble()
+              : 1.0;
       for (final line in r.ingredients) {
         final parsed = _parseLine(line);
         if (parsed == null) {
           // Utiliser la ligne brute non quantifiable
           final key = _normalize(line);
-          final b = buckets.putIfAbsent(key, () => _AggBucket(name: _cleanDisplay(line)));
+          final b = buckets.putIfAbsent(
+              key, () => _AggBucket(name: _cleanDisplay(line)));
           b.occurrences += 1;
           continue;
         }
@@ -65,8 +68,10 @@ class ShoppingListService {
         double? amount = parsed.amount != null ? parsed.amount! * factor : null;
         String? unit = parsed.unit;
 
-        final key = _normalize(parsed.name.isNotEmpty ? parsed.name : parsed.displayName);
-        final b = buckets.putIfAbsent(key, () => _AggBucket(name: parsed.displayName, unit: unit));
+        final key = _normalize(
+            parsed.name.isNotEmpty ? parsed.name : parsed.displayName);
+        final b = buckets.putIfAbsent(
+            key, () => _AggBucket(name: parsed.displayName, unit: unit));
 
         // Unifier unités si déjà existantes
         if (b.unit != null && unit != null && b.unit != unit) {
@@ -91,20 +96,26 @@ class ShoppingListService {
 
     final list = buckets.values.map((b) => AggregatedIngredient(
           name: b.name,
-          totalAmount: b.totalAmount != null ? _roundQuantity(b.totalAmount!) : null,
+          totalAmount: b.totalAmount != null
+              ? _roundQuantity(b.totalAmount!, b.unit)
+              : null,
           unit: b.unit,
           occurrences: b.occurrences,
         ));
 
-    final sorted = list.toList()
-      ..sort((a, b) => a.name.compareTo(b.name));
+    final sorted = list.toList()..sort((a, b) => a.name.compareTo(b.name));
     return sorted;
   }
 
   // --- Internals ---
 
-  static double _roundQuantity(double v) {
-    // Arrondi "culinaire"
+  static double _roundQuantity(double v, String? unit) {
+    final u = unit?.toLowerCase().trim();
+
+    if (u == 'pcs' || u == 'l' || u == 'kg') {
+      return v.ceilToDouble();
+    }
+
     if (v < 1) return double.parse(v.toStringAsFixed(2));
     if (v < 10) return double.parse(v.toStringAsFixed(1));
     return v.roundToDouble();
@@ -203,21 +214,33 @@ class ShoppingListService {
     double a = amount;
     if (f == t) return (_Conv(), converted: true, amount: a, toUnit: t);
     // Poids
-    if (f == 'kg' && t == 'g') return (_Conv(), converted: true, amount: a * 1000, toUnit: 'g');
-    if (f == 'g' && t == 'kg') return (_Conv(), converted: true, amount: a / 1000, toUnit: 'kg');
+    if (f == 'kg' && t == 'g')
+      return (_Conv(), converted: true, amount: a * 1000, toUnit: 'g');
+    if (f == 'g' && t == 'kg')
+      return (_Conv(), converted: true, amount: a / 1000, toUnit: 'kg');
     // Volume
-    if (f == 'l' && t == 'ml') return (_Conv(), converted: true, amount: a * 1000, toUnit: 'ml');
-    if (f == 'ml' && t == 'l') return (_Conv(), converted: true, amount: a / 1000, toUnit: 'l');
-    if (f == 'cl' && t == 'ml') return (_Conv(), converted: true, amount: a * 10, toUnit: 'ml');
-    if (f == 'ml' && t == 'cl') return (_Conv(), converted: true, amount: a / 10, toUnit: 'cl');
+    if (f == 'l' && t == 'ml')
+      return (_Conv(), converted: true, amount: a * 1000, toUnit: 'ml');
+    if (f == 'ml' && t == 'l')
+      return (_Conv(), converted: true, amount: a / 1000, toUnit: 'l');
+    if (f == 'cl' && t == 'ml')
+      return (_Conv(), converted: true, amount: a * 10, toUnit: 'ml');
+    if (f == 'ml' && t == 'cl')
+      return (_Conv(), converted: true, amount: a / 10, toUnit: 'cl');
     // Cuillères (approximation vers ml)
-    if (f == 'càs' && t == 'ml') return (_Conv(), converted: true, amount: a * 15, toUnit: 'ml');
-    if (f == 'càc' && t == 'ml') return (_Conv(), converted: true, amount: a * 5, toUnit: 'ml');
-    if (f == 'tasse' && t == 'ml') return (_Conv(), converted: true, amount: a * 240, toUnit: 'ml');
+    if (f == 'càs' && t == 'ml')
+      return (_Conv(), converted: true, amount: a * 15, toUnit: 'ml');
+    if (f == 'càc' && t == 'ml')
+      return (_Conv(), converted: true, amount: a * 5, toUnit: 'ml');
+    if (f == 'tasse' && t == 'ml')
+      return (_Conv(), converted: true, amount: a * 240, toUnit: 'ml');
     // Réciproque
-    if (f == 'ml' && t == 'càs') return (_Conv(), converted: true, amount: a / 15, toUnit: 'càs');
-    if (f == 'ml' && t == 'càc') return (_Conv(), converted: true, amount: a / 5, toUnit: 'càc');
-    if (f == 'ml' && t == 'tasse') return (_Conv(), converted: true, amount: a / 240, toUnit: 'tasse');
+    if (f == 'ml' && t == 'càs')
+      return (_Conv(), converted: true, amount: a / 15, toUnit: 'càs');
+    if (f == 'ml' && t == 'càc')
+      return (_Conv(), converted: true, amount: a / 5, toUnit: 'càc');
+    if (f == 'ml' && t == 'tasse')
+      return (_Conv(), converted: true, amount: a / 240, toUnit: 'tasse');
     // Pièces ne sont pas convertibles
     return (_Conv(), converted: false, amount: a, toUnit: t);
   }
@@ -236,8 +259,8 @@ class ShoppingListService {
         .replaceAll('⅝', '5/8')
         .replaceAll('⅞', '7/8');
     // 1/2 -> 0.5
-     final frac = RegExp(r'^(\d+)\/(\d+)?').firstMatch(s);
-     final fm = RegExp(r'^(\d+)/(\d+)').firstMatch(s);
+    final frac = RegExp(r'^(\d+)\/(\d+)?').firstMatch(s);
+    final fm = RegExp(r'^(\d+)/(\d+)').firstMatch(s);
     if (fm != null) {
       final num = double.tryParse(fm.group(1)!);
       final den = double.tryParse(fm.group(2)!);
@@ -253,7 +276,8 @@ class ShoppingListService {
     if (raw.isEmpty) return null;
     final cleaned = raw.replaceAll(RegExp(r'^[•\-\s]+'), '');
     // Chercher un nombre au début
-    final numMatch = RegExp(r'^(environ\s+|env\.\s+|~\s+)?([^a-zA-Z]*)').firstMatch(cleaned);
+    final numMatch =
+        RegExp(r'^(environ\s+|env\.\s+|~\s+)?([^a-zA-Z]*)').firstMatch(cleaned);
     double? qty;
     String rest = cleaned;
     if (numMatch != null) {
@@ -268,14 +292,14 @@ class ShoppingListService {
     // Unité potentielle (le premier token)
     String? unit;
     if (qty != null) {
-      final unitMatch = RegExp(r'^(\w+|[a-zA-Zéèàêëîïôöûüç]+\.?)').firstMatch(rest);
+      final unitMatch =
+          RegExp(r'^(\w+|[a-zA-Zéèàêëîïôöûüç]+\.?)').firstMatch(rest);
       if (unitMatch != null) {
         final u = unitMatch.group(0) ?? '';
         final normalizedU = _normalizeUnit(u);
         // si c'est une unité plausible, la garder et retirer du reste
-        if ({
-          'kg', 'g', 'l', 'ml', 'cl', 'càs', 'càc', 'tasse', 'pcs', 'pincée'
-        }.contains(normalizedU)) {
+        if ({'kg', 'g', 'l', 'ml', 'cl', 'càs', 'càc', 'tasse', 'pcs', 'pincée'}
+            .contains(normalizedU)) {
           unit = normalizedU;
           rest = rest.substring(u.length).trim();
         }
