@@ -6,7 +6,7 @@ import 'package:recette_magique/theme.dart';
 
 class ShoppingListArgs {
   final List<Recipe> recipes;
-  final Map<String, int> personsByRecipe; // recipeId -> persons
+  final Map<String, int> personsByRecipe;
   ShoppingListArgs({required this.recipes, required this.personsByRecipe});
 }
 
@@ -36,11 +36,19 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
     if (i.totalAmount != null && i.unit != null) {
       final n = i.totalAmount!;
       final u = i.unit!;
-      return '${_prettyNumber(n)} $u — ${i.name}';
+
+      if (u == 'pcs') {
+        final v = n.ceil();
+        return '$v ${i.name}';
+      }
+
+      return '${_prettyNumber(n)} $u ${i.name}';
     }
+
     if (i.occurrences > 1) {
       return '${i.occurrences} × ${i.name}';
     }
+
     return i.name;
   }
 
@@ -87,9 +95,17 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
               children: [
                 Icon(Icons.list_alt, color: Theme.of(context).colorScheme.primary),
                 const SizedBox(width: AppSpacing.sm),
-                Text('${widget.args.recipes.length} recette${widget.args.recipes.length > 1 ? 's' : ''}', style: context.textStyles.bodyLarge),
+                Text(
+                  '${widget.args.recipes.length} recette${widget.args.recipes.length > 1 ? 's' : ''}',
+                  style: context.textStyles.bodyLarge,
+                ),
                 const Spacer(),
-                Text('${items.length} articles', style: context.textStyles.labelLarge?.withColor(Theme.of(context).colorScheme.onSurfaceVariant)),
+                Text(
+                  '${items.length} articles',
+                  style: context.textStyles.labelLarge?.withColor(
+                    Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
               ],
             ),
           ),
@@ -142,7 +158,9 @@ class _ShoppingItemTile extends StatelessWidget {
         title: Text(
           label,
           style: checked
-              ? context.textStyles.bodyLarge?.withColor(Theme.of(context).colorScheme.onSurfaceVariant).copyWith(decoration: TextDecoration.lineThrough)
+              ? context.textStyles.bodyLarge
+                  ?.withColor(Theme.of(context).colorScheme.onSurfaceVariant)
+                  .copyWith(decoration: TextDecoration.lineThrough)
               : context.textStyles.bodyLarge,
         ),
       ),

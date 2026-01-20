@@ -18,7 +18,7 @@ class SmallPill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
       decoration: BoxDecoration(
-        color: background ?? AppColors.chipIngredients.withOpacity(0.75),
+        color: background ?? AppColors.chipIngredients.withValues(alpha: 0.75),
         borderRadius: BorderRadius.circular(AppRadius.pill),
       ),
       child: Row(

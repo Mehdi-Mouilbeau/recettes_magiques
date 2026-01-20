@@ -1,32 +1,27 @@
+import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:recette_magique/models/recipe_model.dart';
 
-/// Représente un ingrédient analysé depuis une ligne de texte
-/// Exemple: "200 g de farine" -> amount=200, unit=g, name=farine
 @immutable
 class ParsedIngredient {
-  final String name; // nom normalisé pour l'agrégation (sans articles, accents)
-  final String displayName; // nom pour affichage
+  final String name;
+  final String displayName;
   final double? amount;
-  final String?
-      unit; // unités de base: g, ml, pcs (ou null si non quantifiable)
-  final bool approximated;
+  final String? unit;
   const ParsedIngredient({
     required this.name,
     required this.displayName,
     this.amount,
     this.unit,
-    this.approximated = false,
   });
 }
 
-/// Élément agrégé pour la liste de courses
 @immutable
 class AggregatedIngredient {
-  final String name; // nom d'affichage (propre)
-  final double? totalAmount; // somme dans l'unité normalisée
-  final String? unit; // g | ml | pcs | null
-  final int occurrences; // nombre de lignes agrégées
+  final String name;
+  final double? totalAmount;
+  final String? unit;
+  final int occurrences;
   const AggregatedIngredient({
     required this.name,
     required this.totalAmount,
@@ -35,12 +30,7 @@ class AggregatedIngredient {
   });
 }
 
-/// Modèles et service pour générer une liste de courses à partir de recettes
 class ShoppingListService {
-  /// Génère la liste de courses agrégée
-  /// - [recipes] recettes sélectionnées
-  /// - [personsByRecipe] nombre de personnes souhaité par recette (par id)
-  /// Si recipe.servings est connu, on applique un facteur d'échelle spécifique, sinon on garde tel quel
   List<AggregatedIngredient> buildShoppingList({
     required List<Recipe> recipes,
     required Map<String, int> personsByRecipe,
@@ -50,17 +40,29 @@ class ShoppingListService {
     for (final r in recipes) {
       final id = r.id;
       final desiredPersons = id != null ? personsByRecipe[id] : null;
-      final factor =
-          (desiredPersons != null && r.servings != null && r.servings! > 0)
-              ? desiredPersons / r.servings!.toDouble()
-              : 1.0;
+      final factor = (desiredPersons != null && r.servings != null && r.servings! > 0)
+          ? desiredPersons / r.servings!.toDouble()
+          : 1.0;
+
       for (final line in r.ingredients) {
         final parsed = _parseLine(line);
         if (parsed == null) {
-          // Utiliser la ligne brute non quantifiable
           final key = _normalize(line);
-          final b = buckets.putIfAbsent(
-              key, () => _AggBucket(name: _cleanDisplay(line)));
+          final b = buckets.putIfAbsent(key, () => _AggBucket(name: _cleanDisplay(line)));
+          b.occurrences += 1;
+          continue;
+        }
+
+        final key = _normalize(parsed.name.isNotEmpty ? parsed.name : parsed.displayName);
+        final b = buckets.putIfAbsent(
+          key,
+          () => _AggBucket(name: parsed.displayName, unit: parsed.unit),
+        );
+
+        final isApproxUnit = _isApproxUnit(parsed.unit);
+        if (isApproxUnit) {
+          b.unit = null;
+          b.totalAmount = null;
           b.occurrences += 1;
           continue;
         }
@@ -68,54 +70,51 @@ class ShoppingListService {
         double? amount = parsed.amount != null ? parsed.amount! * factor : null;
         String? unit = parsed.unit;
 
-        final key = _normalize(
-            parsed.name.isNotEmpty ? parsed.name : parsed.displayName);
-        final b = buckets.putIfAbsent(
-            key, () => _AggBucket(name: parsed.displayName, unit: unit));
-
-        // Unifier unités si déjà existantes
         if (b.unit != null && unit != null && b.unit != unit) {
-          // Tenter une conversion simple entre g/kg/ml/l/cl
           final converted = _tryConvert(amount, unit, b.unit!);
           if (converted.converted) {
             amount = converted.amount;
             unit = converted.toUnit;
           } else {
-            // Conflit d'unités non convertible -> on perd l'agrégation quantitative, garder occurrences
             amount = null;
             unit = null;
             b.unit = null;
+            b.totalAmount = null;
           }
         }
 
-        if (amount != null) b.totalAmount = (b.totalAmount ?? 0) + amount;
-        b.unit ??= unit; // peut rester null volontairement
+        if (amount != null && unit != null && b.unit != null) {
+          b.totalAmount = (b.totalAmount ?? 0) + amount;
+        } else {
+          b.totalAmount = null;
+          b.unit = null;
+        }
+
         b.occurrences += 1;
       }
     }
 
-    final list = buckets.values.map((b) => AggregatedIngredient(
-          name: b.name,
-          totalAmount: b.totalAmount != null
-              ? _roundQuantity(b.totalAmount!, b.unit)
-              : null,
-          unit: b.unit,
-          occurrences: b.occurrences,
-        ));
+    final list = buckets.values.map(
+      (b) => AggregatedIngredient(
+        name: b.name,
+        totalAmount: b.totalAmount != null ? _roundQuantity(b.totalAmount!, b.unit) : null,
+        unit: b.unit,
+        occurrences: b.occurrences,
+      ),
+    );
 
     final sorted = list.toList()..sort((a, b) => a.name.compareTo(b.name));
     return sorted;
   }
 
-  // --- Internals ---
+  static bool _isApproxUnit(String? unit) {
+    final u = unit?.toLowerCase().trim();
+    return u == 'càs' || u == 'càc' || u == 'tasse' || u == 'pincée';
+  }
 
   static double _roundQuantity(double v, String? unit) {
     final u = unit?.toLowerCase().trim();
-
-    if (u == 'pcs' || u == 'l' || u == 'kg') {
-      return v.ceilToDouble();
-    }
-
+    if (u == 'pcs' || u == 'l' || u == 'kg') return v.ceilToDouble();
     if (v < 1) return double.parse(v.toStringAsFixed(2));
     if (v < 10) return double.parse(v.toStringAsFixed(1));
     return v.roundToDouble();
@@ -127,6 +126,7 @@ class ShoppingListService {
 
   static String _normalize(String input) {
     final lower = input.toLowerCase().trim();
+
     final deacc = lower
         .replaceAll(RegExp('[àáâäãå]'), 'a')
         .replaceAll(RegExp('[ç]'), 'c')
@@ -136,13 +136,27 @@ class ShoppingListService {
         .replaceAll(RegExp('[òóôöõ]'), 'o')
         .replaceAll(RegExp('[ùúûü]'), 'u')
         .replaceAll(RegExp('[ýÿ]'), 'y');
-    final noArticles = deacc
-        .replaceAll(RegExp(r"\b(d'|d’|de|du|des|la|le|les)\b"), ' ')
+
+    var s = deacc
+        .replaceAll(RegExp(r'\(.*?\)'), ' ')
+        .replaceAll(RegExp(r"\b(d'|d’|de|du|des|la|le|les|un|une)\b"), ' ')
         .replaceAll(RegExp(r'\s+'), ' ')
         .trim();
-    // Retirer parenthèses et contenu
-    final noParen = noArticles.replaceAll(RegExp(r'\(.*?\)'), '').trim();
-    return noParen;
+
+    s = s.replaceAll(RegExp(r'\b(rouge|rouges|vert|verts|verte|vertes|jaune|jaunes|noir|noirs|blanc|blancs)\b'), ' ');
+    s = s.replaceAll(RegExp(r'\s+'), ' ').trim();
+
+    final words = s.split(' ');
+    final normalizedWords = <String>[];
+
+    for (final w in words) {
+      var t = w.trim();
+      if (t.isEmpty) continue;
+      if (t.length > 3 && t.endsWith('s')) t = t.substring(0, t.length - 1);
+      normalizedWords.add(t);
+    }
+
+    return normalizedWords.join(' ').trim();
   }
 
   static String _normalizeUnit(String unit) {
@@ -198,14 +212,19 @@ class ShoppingListService {
       case 'oeufs':
       case 'unite':
       case 'unites':
+      case 'brin':
+      case 'brins':
         return 'pcs';
       default:
-        return u; // inconnu
+        return u;
     }
   }
 
   static (_Conv, {bool converted, double? amount, String? toUnit}) _tryConvert(
-      double? amount, String? from, String to) {
+    double? amount,
+    String? from,
+    String to,
+  ) {
     if (amount == null || from == null) {
       return (_Conv(), converted: false, amount: amount, toUnit: to);
     }
@@ -213,42 +232,21 @@ class ShoppingListService {
     final t = _normalizeUnit(to);
     double a = amount;
     if (f == t) return (_Conv(), converted: true, amount: a, toUnit: t);
-    // Poids
-    if (f == 'kg' && t == 'g')
-      return (_Conv(), converted: true, amount: a * 1000, toUnit: 'g');
-    if (f == 'g' && t == 'kg')
-      return (_Conv(), converted: true, amount: a / 1000, toUnit: 'kg');
-    // Volume
-    if (f == 'l' && t == 'ml')
-      return (_Conv(), converted: true, amount: a * 1000, toUnit: 'ml');
-    if (f == 'ml' && t == 'l')
-      return (_Conv(), converted: true, amount: a / 1000, toUnit: 'l');
-    if (f == 'cl' && t == 'ml')
-      return (_Conv(), converted: true, amount: a * 10, toUnit: 'ml');
-    if (f == 'ml' && t == 'cl')
-      return (_Conv(), converted: true, amount: a / 10, toUnit: 'cl');
-    // Cuillères (approximation vers ml)
-    if (f == 'càs' && t == 'ml')
-      return (_Conv(), converted: true, amount: a * 15, toUnit: 'ml');
-    if (f == 'càc' && t == 'ml')
-      return (_Conv(), converted: true, amount: a * 5, toUnit: 'ml');
-    if (f == 'tasse' && t == 'ml')
-      return (_Conv(), converted: true, amount: a * 240, toUnit: 'ml');
-    // Réciproque
-    if (f == 'ml' && t == 'càs')
-      return (_Conv(), converted: true, amount: a / 15, toUnit: 'càs');
-    if (f == 'ml' && t == 'càc')
-      return (_Conv(), converted: true, amount: a / 5, toUnit: 'càc');
-    if (f == 'ml' && t == 'tasse')
-      return (_Conv(), converted: true, amount: a / 240, toUnit: 'tasse');
-    // Pièces ne sont pas convertibles
+
+    if (f == 'kg' && t == 'g') return (_Conv(), converted: true, amount: a * 1000, toUnit: 'g');
+    if (f == 'g' && t == 'kg') return (_Conv(), converted: true, amount: a / 1000, toUnit: 'kg');
+
+    if (f == 'l' && t == 'ml') return (_Conv(), converted: true, amount: a * 1000, toUnit: 'ml');
+    if (f == 'ml' && t == 'l') return (_Conv(), converted: true, amount: a / 1000, toUnit: 'l');
+    if (f == 'cl' && t == 'ml') return (_Conv(), converted: true, amount: a * 10, toUnit: 'ml');
+    if (f == 'ml' && t == 'cl') return (_Conv(), converted: true, amount: a / 10, toUnit: 'cl');
+
     return (_Conv(), converted: false, amount: a, toUnit: t);
   }
 
   static double? _parseNumber(String s) {
-    s = s.trim();
-    // fractions Unicode
-    s = s
+    var x = s.trim();
+    x = x
         .replaceAll('½', '1/2')
         .replaceAll('¼', '1/4')
         .replaceAll('¾', '3/4')
@@ -258,85 +256,122 @@ class ShoppingListService {
         .replaceAll('⅜', '3/8')
         .replaceAll('⅝', '5/8')
         .replaceAll('⅞', '7/8');
-    // 1/2 -> 0.5
-    final frac = RegExp(r'^(\d+)\/(\d+)?').firstMatch(s);
-    final fm = RegExp(r'^(\d+)/(\d+)').firstMatch(s);
+
+    final fm = RegExp(r'^(\d+)\/(\d+)$').firstMatch(x);
     if (fm != null) {
       final num = double.tryParse(fm.group(1)!);
       final den = double.tryParse(fm.group(2)!);
       if (num != null && den != null && den != 0) return num / den;
     }
-    // nombres décimaux (virgule ou point)
-    s = s.replaceAll(',', '.');
-    return double.tryParse(RegExp(r'^(\d+(?:\.\d+)?)').stringMatch(s) ?? '');
+
+    x = x.replaceAll(',', '.');
+    return double.tryParse(x);
   }
 
   static ParsedIngredient? _parseLine(String line) {
     final raw = line.trim();
     if (raw.isEmpty) return null;
-    final cleaned = raw.replaceAll(RegExp(r'^[•\-\s]+'), '');
-    // Chercher un nombre au début
-    final numMatch =
-        RegExp(r'^(environ\s+|env\.\s+|~\s+)?([^a-zA-Z]*)').firstMatch(cleaned);
+
+    var cleaned = raw.replaceAll(RegExp(r'^[•\-\s]+'), '').trim();
+
+    final xForm = RegExp(r'^(.*?)\s+x\s+(\d+(?:[.,]\d+)?)\s*(\w+)?$', caseSensitive: false).firstMatch(cleaned);
+    if (xForm != null) {
+      final namePart = (xForm.group(1) ?? '').trim();
+      final qty = _parseNumber((xForm.group(2) ?? '').trim());
+      final unitToken = (xForm.group(3) ?? '').trim();
+      final unit = unitToken.isEmpty ? 'pcs' : _normalizeUnit(unitToken);
+
+      final name = _normalize(namePart);
+      final display = _toDisplayCase(_stripArticles(namePart));
+      if (display.isEmpty) return null;
+
+      return ParsedIngredient(
+        name: name,
+        displayName: display,
+        amount: qty,
+        unit: unit.isEmpty ? 'pcs' : unit,
+      );
+    }
+
+    final tailQty = RegExp(r'^(.*)\s(\d+(?:[.,]\d+)?)\s*(kg|g|ml|l|cl)$', caseSensitive: false).firstMatch(cleaned);
+    if (tailQty != null) {
+      final namePart = (tailQty.group(1) ?? '').trim();
+      final qty = _parseNumber((tailQty.group(2) ?? '').trim());
+      final unit = _normalizeUnit(tailQty.group(3) ?? '');
+
+      final name = _normalize(namePart);
+      final display = _toDisplayCase(_stripArticles(namePart));
+      if (display.isEmpty) return null;
+
+      return ParsedIngredient(
+        name: name,
+        displayName: display,
+        amount: qty,
+        unit: unit,
+      );
+    }
+
+    final leadQty = RegExp(r'^(?:environ|env\.|~)?\s*(\d+(?:[.,]\d+)?|\d+/\d+|[½¼¾⅓⅔⅛⅜⅝⅞])\s+(.*)$', caseSensitive: false)
+        .firstMatch(cleaned);
+
     double? qty;
     String rest = cleaned;
-    if (numMatch != null) {
-      final prefix = numMatch.group(2) ?? '';
-      final num = _parseNumber(prefix.trim());
-      if (num != null) {
-        qty = num;
-        rest = cleaned.substring(prefix.length).trim();
-      }
+
+    if (leadQty != null) {
+      qty = _parseNumber((leadQty.group(1) ?? '').trim());
+      rest = (leadQty.group(2) ?? '').trim();
     }
 
-    // Unité potentielle (le premier token)
     String? unit;
     if (qty != null) {
-      final unitMatch =
-          RegExp(r'^(\w+|[a-zA-Zéèàêëîïôöûüç]+\.?)').firstMatch(rest);
+      final unitMatch = RegExp(r'^([a-zA-Zéèàêëîïôöûüç\.]+)\s+(.*)$').firstMatch(rest);
       if (unitMatch != null) {
-        final u = unitMatch.group(0) ?? '';
-        final normalizedU = _normalizeUnit(u);
-        // si c'est une unité plausible, la garder et retirer du reste
-        if ({'kg', 'g', 'l', 'ml', 'cl', 'càs', 'càc', 'tasse', 'pcs', 'pincée'}
-            .contains(normalizedU)) {
-          unit = normalizedU;
-          rest = rest.substring(u.length).trim();
+        final u = unitMatch.group(1) ?? '';
+        final possible = _normalizeUnit(u);
+        final after = (unitMatch.group(2) ?? '').trim();
+
+        if ({
+          'kg', 'g', 'l', 'ml', 'cl', 'càs', 'càc', 'tasse', 'pcs', 'pincée'
+        }.contains(possible)) {
+          unit = possible;
+          rest = after;
+        } else {
+          unit = 'pcs';
         }
+      } else {
+        unit = 'pcs';
       }
     }
 
-    // supprimer articles de liaison
-    rest = rest.replaceAll(RegExp(r"^(d'|d’|de|du|des|la|le|les)\s+"), '');
-    // retirer parenthèses explicatives
+    rest = _stripArticles(rest);
     rest = rest.replaceAll(RegExp(r'\(.*?\)'), '').trim();
 
-    // Si aucune quantité trouvée, essayez formats "2 tomates"
-    if (qty == null) {
-      final fm = RegExp(r'^(\d+(?:[\.,]\d+)?|\d+/\d+)\s+(.*)').firstMatch(rest);
-      if (fm != null) {
-        qty = _parseNumber(fm.group(1)!.replaceAll(',', '.'));
-        rest = (fm.group(2) ?? '').trim();
-        unit ??= 'pcs';
-      }
-    }
+    if (rest.isEmpty) return null;
 
-    // rest est le nom d'ingrédient pour affichage
     final display = _toDisplayCase(rest);
     final name = _normalize(rest);
 
+    if (display.isEmpty) return null;
+
     return ParsedIngredient(
       name: name,
-      displayName: display.isEmpty ? _cleanDisplay(line) : display,
+      displayName: display,
       amount: qty,
       unit: unit,
-      approximated: false,
     );
   }
 
+  static String _stripArticles(String s) {
+    var x = s.trim();
+    x = x.replaceAll(RegExp(r"^(d'|d’|de|du|des|la|le|les)\s+"), '');
+    x = x.replaceAll(RegExp(r'\s+'), ' ').trim();
+    return x;
+  }
+
   static String _toDisplayCase(String s) {
-    if (s.isEmpty) return s;
-    return s[0].toUpperCase() + s.substring(1);
+    final t = s.trim();
+    if (t.isEmpty) return t;
+    return t[0].toUpperCase() + t.substring(1);
   }
 }
 

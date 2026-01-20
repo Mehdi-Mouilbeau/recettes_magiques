@@ -5,17 +5,22 @@ import 'package:go_router/go_router.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_analytics/observer.dart';
 
-import 'package:recette_magique/screens/shopping/shooping_home_screen.dart';
 import 'package:recette_magique/services/backend_config.dart';
+import 'package:recette_magique/services/recipe_service.dart';
+import 'package:recette_magique/theme.dart';
+
 import 'package:recette_magique/screens/auth/login_screen.dart';
 import 'package:recette_magique/screens/auth/register_screen.dart';
 import 'package:recette_magique/screens/home/home_screen.dart';
 import 'package:recette_magique/screens/scan/scan_screen.dart';
 import 'package:recette_magique/screens/recipe/recipe_detail_screen.dart';
-import 'package:recette_magique/services/recipe_service.dart';
+import 'package:recette_magique/screens/shopping/shooping_home_screen.dart';
 import 'package:recette_magique/screens/shopping/shopping_list_screen.dart';
-import 'package:recette_magique/theme.dart';
 import 'package:recette_magique/screens/agenda/agenda_screen.dart';
+import 'package:recette_magique/screens/account/account_screen.dart';
+
+// ✅ AJOUTE TON ÉCRAN CGU / Mentions / Privacy
+import 'package:recette_magique/screens/cgu/legal_screen.dart';
 
 class AppRouter {
   static GoRouter buildRouter({FirebaseAnalyticsObserver? analyticsObserver}) {
@@ -38,7 +43,10 @@ class AppRouter {
         final isLoginPage = loc == AppRoutes.login;
         final isRegisterPage = loc == AppRoutes.register;
 
-        if (!isLoggedIn && !isLoginPage && !isRegisterPage) {
+        // ✅ On autorise /legal même si pas connecté
+        final isLegalPage = loc == AppRoutes.legal;
+
+        if (!isLoggedIn && !isLoginPage && !isRegisterPage && !isLegalPage) {
           return AppRoutes.login;
         }
 
@@ -49,6 +57,7 @@ class AppRouter {
         return null;
       },
       routes: [
+        // Auth routes (no bottom navigation)
         GoRoute(
           path: AppRoutes.login,
           name: 'login',
@@ -61,6 +70,16 @@ class AppRouter {
           pageBuilder: (context, state) =>
               const NoTransitionPage(child: RegisterScreen()),
         ),
+
+        // ✅ Route CGU / Mentions / Privacy (accessible avant login)
+        GoRoute(
+          path: AppRoutes.legal,
+          name: 'legal',
+          pageBuilder: (context, state) =>
+              const MaterialPage(child: LegalScreen()),
+        ),
+
+        // Shell with BottomNavigationBar
         ShellRoute(
           builder: (context, state, child) => _RootShell(child: child),
           routes: [
@@ -88,6 +107,15 @@ class AppRouter {
               pageBuilder: (context, state) =>
                   const NoTransitionPage(child: AgendaScreen()),
             ),
+
+            // ✅ Account dans le shell (garde la bottom bar)
+            GoRoute(
+              path: AppRoutes.account,
+              name: 'account',
+              pageBuilder: (context, state) =>
+                  const MaterialPage(child: AccountScreen()),
+            ),
+
             GoRoute(
               path: '${AppRoutes.recipeDetail}/:id',
               name: 'recipe-detail',
@@ -163,12 +191,18 @@ class AppRouter {
 class AppRoutes {
   static const String login = '/login';
   static const String register = '/register';
+
   static const String home = '/home';
   static const String scan = '/scan';
   static const String shopping = '/shopping';
   static const String recipeDetail = '/recipe';
   static const String courses = '/courses';
   static const String agenda = '/agenda';
+
+  static const String account = '/account';
+
+  // ✅ AJOUT
+  static const String legal = '/legal';
 }
 
 class _RootShell extends StatelessWidget {
@@ -220,7 +254,7 @@ class _RootShell extends StatelessWidget {
                 filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
                 child: Container(
                   decoration: BoxDecoration(
-                    color: AppColors.card.withOpacity(0.60),
+                    color: AppColors.card.withValues(alpha: 0.6),
                     borderRadius: BorderRadius.circular(AppRadius.xl),
                     border: Border.all(color: AppColors.border),
                   ),

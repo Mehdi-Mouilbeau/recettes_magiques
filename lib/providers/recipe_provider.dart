@@ -1,4 +1,8 @@
+import 'dart:convert';
+
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'dart:async';
 import 'package:recette_magique/models/recipe_model.dart';
 import 'package:recette_magique/services/recipe_service.dart';
@@ -84,8 +88,8 @@ class RecipeProvider extends ChangeNotifier {
     try {
       final recipeId = await _recipeService.createRecipe(
         recipe.copyWith(
-          // imageStatus: 'pending', // optionnel si tu ajoutes le champ
-        ),
+            // imageStatus: 'pending', // optionnel si tu ajoutes le champ
+            ),
       );
 
       if (recipeId == null) {
@@ -102,6 +106,40 @@ class RecipeProvider extends ChangeNotifier {
       _errorMessage = 'Erreur lors de la création';
       _isLoading = false;
       notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> regenerateImage(String recipeId) async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        debugPrint("regenerateImage: user == null");
+        return false;
+      }
+
+      final token = await user.getIdToken(true);
+
+      final url = Uri.parse(
+        'https://europe-west1-recette-magique-7de15.cloudfunctions.net/regenerateRecipeImage',
+      );
+
+      final resp = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({'recipeId': recipeId}),
+      );
+
+      debugPrint("regenerateImage status=${resp.statusCode}");
+      debugPrint("regenerateImage body=${resp.body}");
+
+      return resp.statusCode == 200;
+    } catch (e, st) {
+      debugPrint("regenerateImage exception: $e");
+      debugPrint("$st");
       return false;
     }
   }

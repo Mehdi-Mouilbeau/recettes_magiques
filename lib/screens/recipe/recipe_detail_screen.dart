@@ -40,10 +40,47 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
     _noteController = TextEditingController(text: widget.recipe.note ?? '');
   }
 
+  
+
   @override
   void dispose() {
     _noteController.dispose();
     super.dispose();
+  }
+
+  Future<void> _deleteRecipe(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Supprimer'),
+        content: const Text('Voulez-vous vraiment supprimer cette recette ?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+            child: const Text('Supprimer'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && context.mounted) {
+      final recipeProvider = context.read<RecipeProvider>();
+      final success = await recipeProvider.deleteRecipe(widget.recipe);
+
+      if (success && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Recette supprimée')),
+        );
+        context.pop();
+      }
+    }
   }
 
   @override
@@ -97,9 +134,9 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
                         colors: [
-                          Colors.black.withOpacity(0.15),
+                          Colors.black.withValues(alpha: 0.15),
                           Colors.transparent,
-                          Colors.black.withOpacity(0.25),
+                          Colors.black.withValues(alpha: 0.25),
                         ],
                       ),
                     ),
@@ -120,13 +157,63 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                           icon: Icons.arrow_back,
                           onTap: () => context.pop(),
                         ),
-                        HeartButton(
-                          isFavorite: recipe.isFavorite,
-                          onTap: () => context
-                              .read<RecipeProvider>()
-                              .toggleFavorite(recipe),
-                          backgroundColor: AppColors.roundButton,
-                          iconColor: Colors.white,
+                        Row(
+                          children: [
+                            RoundIconButton(
+                              icon: Icons.refresh,
+                              onTap: () async {
+                                final id = recipe.id;
+                                if (id == null) return;
+
+                                final confirm = await showDialog<bool>(
+                                  context: context,
+                                  builder: (ctx) => AlertDialog(
+                                    title: const Text('Régénérer l’image ?'),
+                                    content: const Text(
+                                      'Une nouvelle image sera générée. Ça peut prendre quelques secondes.',
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () =>
+                                            Navigator.pop(ctx, false),
+                                        child: const Text('Annuler'),
+                                      ),
+                                      ElevatedButton(
+                                        onPressed: () =>
+                                            Navigator.pop(ctx, true),
+                                        child: const Text('Régénérer'),
+                                      ),
+                                    ],
+                                  ),
+                                );
+
+                                if (confirm != true) return;
+
+                                final ok = await context
+                                    .read<RecipeProvider>()
+                                    .regenerateImage(id);
+
+                                if (!context.mounted) return;
+
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(ok
+                                        ? "Régénération lancée"
+                                        : "Erreur lors de la régénération"),
+                                  ),
+                                );
+                              },
+                            ),
+                            const SizedBox(width: 10),
+                            HeartButton(
+                              isFavorite: recipe.isFavorite,
+                              onTap: () => context
+                                  .read<RecipeProvider>()
+                                  .toggleFavorite(recipe),
+                              backgroundColor: AppColors.roundButton,
+                              iconColor: Colors.white,
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -214,10 +301,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                     children: [
                       Text(
                         'Ingrédients',
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleLarge
-                            ?.copyWith(
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
                               fontWeight: FontWeight.w900,
                               color: AppColors.text,
                             ),
@@ -295,8 +379,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
 
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                              content:
-                                  Text('Ajouté à la liste de courses'),
+                              content: Text('Ajouté à la liste de courses'),
                               behavior: SnackBarBehavior.floating,
                             ),
                           );
@@ -353,6 +436,23 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
 
                   const SizedBox(height: AppSpacing.xl),
 
+                   // Bouton supprimer
+                  OutlinedButton.icon(
+                    onPressed: () => _deleteRecipe(context),
+                    icon: const Icon(Icons.delete_outline),
+                    label: const Text('Supprimer cette recette'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Theme.of(context).colorScheme.error,
+                      side: BorderSide(color: Theme.of(context).colorScheme.error),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(AppRadius.md),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 80),
+
                   // ============ NOTE ============
                   Text(
                     'Note',
@@ -366,7 +466,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                   Container(
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.55),
+                      color: Colors.white.withValues(alpha: 0.55),
                       borderRadius: BorderRadius.circular(18),
                     ),
                     child: Column(
@@ -407,8 +507,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                             icon: const Icon(Icons.save),
                             label: const Text(
                               'Enregistrer',
-                              style:
-                                  TextStyle(fontWeight: FontWeight.w900),
+                              style: TextStyle(fontWeight: FontWeight.w900),
                             ),
                           ),
                         ),

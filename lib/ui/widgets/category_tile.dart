@@ -22,7 +22,7 @@ class CategoryTile extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 160),
         width: 74,
-        padding: const EdgeInsets.symmetric(vertical: 10),
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
         decoration: BoxDecoration(
           color: active ? AppColors.card : AppColors.tile,
           borderRadius: BorderRadius.circular(14),
@@ -38,7 +38,7 @@ class CategoryTile extends StatelessWidget {
         child: Column(
           children: [
             Icon(icon, color: AppColors.text),
-            const SizedBox(height: 6),
+            const SizedBox(height: 4),
             Text(
               label,
               style: Theme.of(context).textTheme.labelLarge?.copyWith(

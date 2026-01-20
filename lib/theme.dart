@@ -71,6 +71,9 @@ class AppColors {
   static const Color bgTop = Color(0xFFBAD4AA);
   static const Color bgBottom = Color(0xFFE0E0C7);
 
+  static const Color homeHeader = Color(0xFFE3B56E); // orange bandeau
+  static const Color homeSearch = Color(0xFFDBE6B9); // barre recherche
+
   static const LinearGradient bgGradient = LinearGradient(
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
@@ -115,6 +118,13 @@ class AppTextStyles {
         color: AppColors.text,
       );
 
+      static TextStyle brandTitle1() => GoogleFonts.inter(
+        fontSize: 16,
+        letterSpacing: 2,
+        fontWeight: FontWeight.w300,
+        color: AppColors.text,
+      );
+
   static TextStyle sectionTitle() => GoogleFonts.inter(
         fontSize: 28,
         fontWeight: FontWeight.w900,
@@ -142,6 +152,44 @@ class AppTextStyles {
   static TextStyle muted() => GoogleFonts.inter(
         fontSize: 14,
         fontWeight: FontWeight.w400,
+        color: AppColors.textMuted,
+      );
+  static TextStyle brandRecettes() => GoogleFonts.playfairDisplay(
+        fontSize: 56,
+        height: 1.0,
+        fontWeight: FontWeight.w700,
+        color: AppColors.text,
+      );
+
+  static TextStyle brandSubtitle() => GoogleFonts.caveat(
+        fontSize: 30,
+        height: 1.0,
+        fontWeight: FontWeight.w700,
+        color: AppColors.text,
+      );
+
+
+  static TextStyle sheetTitle() => GoogleFonts.inter(
+        fontSize: 22,
+        fontWeight: FontWeight.w800,
+        color: AppColors.text,
+      );
+
+  static TextStyle fieldLabel() => GoogleFonts.inter(
+        fontSize: 13,
+        fontWeight: FontWeight.w600,
+        color: AppColors.text,
+      );
+
+  static TextStyle link() => GoogleFonts.inter(
+        fontSize: 13,
+        fontWeight: FontWeight.w700,
+        color: AppColors.accent,
+      );
+
+  static TextStyle hint() => GoogleFonts.inter(
+        fontSize: 13,
+        fontWeight: FontWeight.w500,
         color: AppColors.textMuted,
       );
 }
@@ -258,7 +306,7 @@ ThemeData get appTheme => ThemeData(
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        indicatorColor: AppColors.tile.withOpacity(0.70),
+        indicatorColor: AppColors.tile.withValues(alpha: 0.7),
         labelTextStyle: WidgetStateProperty.all(
           GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 12),
         ),

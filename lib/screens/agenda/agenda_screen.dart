@@ -139,7 +139,7 @@ class _HeaderCard extends StatelessWidget {
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.55),
+              color: Colors.white.withValues(alpha: 0.55),
               borderRadius: BorderRadius.circular(14),
             ),
             child: const Icon(Icons.calendar_month, color: AppColors.text),
@@ -160,7 +160,7 @@ class _HeaderCard extends StatelessWidget {
                 Text(
                   subtitle,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: AppColors.text.withOpacity(0.8),
+                        color: AppColors.text.withValues(alpha: 0.8),
                       ),
                 ),
                 const SizedBox(height: 10),
@@ -220,7 +220,7 @@ class _DayCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.85),
+        color: Colors.white.withValues(alpha: 0.85),
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: AppColors.border),
         boxShadow: const [

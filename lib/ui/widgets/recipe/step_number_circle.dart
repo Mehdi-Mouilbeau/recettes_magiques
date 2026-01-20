@@ -12,7 +12,7 @@ class StepNumberCircle extends StatelessWidget {
       width: 30,
       height: 30,
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.70),
+        color: Colors.white.withValues(alpha: 0.70),
         shape: BoxShape.circle,
       ),
       alignment: Alignment.center,

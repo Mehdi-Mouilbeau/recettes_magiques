@@ -20,7 +20,7 @@ class HeartButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: backgroundColor ?? Colors.white.withOpacity(0.55),
+      color: backgroundColor ?? Colors.white.withValues(alpha: 0.55),
       shape: const CircleBorder(),
       child: InkWell(
         customBorder: const CircleBorder(),
