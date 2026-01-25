@@ -40,183 +40,192 @@ class HomeTopPanel extends StatelessWidget {
             bottom: false,
             child: LayoutBuilder(
               builder: (context, constraints) {
-                return ConstrainedBox(
-                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                  child: ClipRect(
-                    child: Column(
-                      children: [
-                        // Zone "fixe" (header)
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(18, 10, 18, 6),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Row(
-                                  children: [
-                                    Image.asset(
-                                      'assets/icons/mascotte.png',
-                                      width: 48,
-                                      height: 48,
-                                      fit: BoxFit.contain,
+                return ClipRect(
+                  child: Column(
+                    children: [
+                      // ----------------------------
+                      // HEADER (fixe)
+                      // ----------------------------
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(18, 10, 18, 6),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Row(
+                                children: [
+                                  Image.asset(
+                                    'assets/icons/mascotte.png',
+                                    width: 48,
+                                    height: 48,
+                                    fit: BoxFit.contain,
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Flexible(
+                                    child: Text(
+                                      'Recettes dans ma poche',
+                                      style: AppTextStyles.brandTitle1(),
+                                      overflow: TextOverflow.ellipsis,
                                     ),
-                                    const SizedBox(width: 10),
-                                    Flexible(
-                                      child: Text(
-                                        'Recettes dans ma poche',
-                                        style: AppTextStyles.brandTitle1(),
-                                        overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
+                              ),
+                            ),
+                            IconButton(
+                              tooltip: headerAction.tooltip,
+                              onPressed: headerAction.onPressed(context),
+                              icon: Icon(headerAction.icon, color: AppColors.text),
+                            ),
+                            IconButton(
+                              tooltip: 'Déconnexion',
+                              onPressed: () => controller.signOut(context),
+                              icon: const Icon(Icons.logout_outlined, color: AppColors.text),
+                            ),
+                            IconButton(
+                              tooltip: 'Profil',
+                              onPressed: () => context.push('/account'),
+                              icon: const Icon(Icons.person, color: AppColors.text),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      // ----------------------------
+                      // RESTE (flexible)
+                      // -> Expanded empêche l'overflow
+                      // -> Pas de scroll ressenti (NeverScrollable), mais absorbe les surplus
+                      // ----------------------------
+                      Expanded(
+                        child: SingleChildScrollView(
+                          physics: const NeverScrollableScrollPhysics(),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              // Catégories avec images assets
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 18),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    _cat(
+                                      label: 'Entrée',
+                                      assetPath: 'assets/icons/Icone_entree.png',
+                                      active: controller.category == RecipeCategory.entree,
+                                      onTap: () => controller.setCategory(
+                                        controller.category == RecipeCategory.entree
+                                            ? null
+                                            : RecipeCategory.entree,
+                                      ),
+                                    ),
+                                    _cat(
+                                      label: 'Plat',
+                                      assetPath: 'assets/icons/Icone_plat.png',
+                                      active: controller.category == RecipeCategory.plat,
+                                      onTap: () => controller.setCategory(
+                                        controller.category == RecipeCategory.plat
+                                            ? null
+                                            : RecipeCategory.plat,
+                                      ),
+                                    ),
+                                    _cat(
+                                      label: 'Dessert',
+                                      assetPath: 'assets/icons/Icone_cake.png',
+                                      active: controller.category == RecipeCategory.dessert,
+                                      onTap: () => controller.setCategory(
+                                        controller.category == RecipeCategory.dessert
+                                            ? null
+                                            : RecipeCategory.dessert,
+                                      ),
+                                    ),
+                                    _cat(
+                                      label: 'Boisson',
+                                      assetPath: 'assets/icons/Icone_boisson.png',
+                                      active: controller.category == RecipeCategory.boisson,
+                                      onTap: () => controller.setCategory(
+                                        controller.category == RecipeCategory.boisson
+                                            ? null
+                                            : RecipeCategory.boisson,
                                       ),
                                     ),
                                   ],
                                 ),
                               ),
-                              IconButton(
-                                tooltip: headerAction.tooltip,
-                                onPressed: headerAction.onPressed(context),
-                                icon: Icon(headerAction.icon, color: AppColors.text),
-                              ),
-                              IconButton(
-                                tooltip: 'Déconnexion',
-                                onPressed: () => controller.signOut(context),
-                                icon: const Icon(Icons.logout_outlined, color: AppColors.text),
-                              ),
-                              IconButton(
-                                tooltip: 'Profil',
-                                onPressed: () => context.push('/account'),
-                                icon: const Icon(Icons.person, color: AppColors.text),
-                              ),
-                            ],
-                          ),
-                        ),
 
-                        // ✅ Le reste devient flexible et scrollable si besoin
-                        Expanded(
-                          child: SingleChildScrollView(
-                            physics: const NeverScrollableScrollPhysics(),
-                            // Le scroll ne sert que "au cas où" overflow → pas de sensation de scroll
-                            child: Column(
-                              children: [
-                                // Catégories
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 18),
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      _cat(
-                                        label: 'Entrée',
-                                        icon: Icons.restaurant,
-                                        active: controller.category == RecipeCategory.entree,
-                                        onTap: () => controller.setCategory(
-                                          controller.category == RecipeCategory.entree
-                                              ? null
-                                              : RecipeCategory.entree,
-                                        ),
-                                      ),
-                                      _cat(
-                                        label: 'Plat',
-                                        icon: Icons.restaurant_menu,
-                                        active: controller.category == RecipeCategory.plat,
-                                        onTap: () => controller.setCategory(
-                                          controller.category == RecipeCategory.plat
-                                              ? null
-                                              : RecipeCategory.plat,
-                                        ),
-                                      ),
-                                      _cat(
-                                        label: 'Dessert',
-                                        icon: Icons.icecream,
-                                        active: controller.category == RecipeCategory.dessert,
-                                        onTap: () => controller.setCategory(
-                                          controller.category == RecipeCategory.dessert
-                                              ? null
-                                              : RecipeCategory.dessert,
-                                        ),
-                                      ),
-                                      _cat(
-                                        label: 'Boisson',
-                                        icon: Icons.local_drink,
-                                        active: controller.category == RecipeCategory.boisson,
-                                        onTap: () => controller.setCategory(
-                                          controller.category == RecipeCategory.boisson
-                                              ? null
-                                              : RecipeCategory.boisson,
-                                        ),
+                              const SizedBox(height: 14),
+
+                              // Search
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 16),
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color: _searchBg,
+                                    borderRadius: BorderRadius.circular(18),
+                                    boxShadow: const [
+                                      BoxShadow(
+                                        blurRadius: 18,
+                                        offset: Offset(0, 10),
+                                        color: AppColors.shadow,
                                       ),
                                     ],
                                   ),
-                                ),
-
-                                const SizedBox(height: 14),
-
-                                // Search
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      color: _searchBg,
-                                      borderRadius: BorderRadius.circular(18),
-                                      boxShadow: const [
-                                        BoxShadow(
-                                          blurRadius: 18,
-                                          offset: Offset(0, 10),
-                                          color: AppColors.shadow,
-                                        ),
-                                      ],
-                                    ),
-                                    child: TextField(
-                                      controller: controller.fieldController,
-                                      textInputAction: TextInputAction.done,
-                                      onSubmitted: (_) => controller.addFromField(context),
-                                      decoration: InputDecoration(
-                                        hintText: 'Rechercher',
-                                        hintStyle: AppTextStyles.hint(),
-                                        prefixIcon:
-                                            const Icon(Icons.search, color: AppColors.textMuted),
-                                        border: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(18),
-                                          borderSide: BorderSide.none,
-                                        ),
-                                        filled: true,
-                                        fillColor: _searchBg,
-                                        contentPadding: const EdgeInsets.symmetric(vertical: 12),
-                                        suffixIcon: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            IconButton(
-                                              tooltip: 'Ajouter',
-                                              onPressed: ingProv.isLoadingSuggestions
-                                                  ? null
-                                                  : () => controller.addFromField(context),
-                                              icon: const Icon(Icons.check_circle,
-                                                  color: AppColors.text),
+                                  child: TextField(
+                                    controller: controller.fieldController,
+                                    textInputAction: TextInputAction.done,
+                                    onSubmitted: (_) => controller.addFromField(context),
+                                    decoration: InputDecoration(
+                                      hintText: 'Rechercher',
+                                      hintStyle: AppTextStyles.hint(),
+                                      prefixIcon: const Icon(
+                                        Icons.search,
+                                        color: AppColors.textMuted,
+                                      ),
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(18),
+                                        borderSide: BorderSide.none,
+                                      ),
+                                      filled: true,
+                                      fillColor: _searchBg,
+                                      contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                                      suffixIcon: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          IconButton(
+                                            tooltip: 'Ajouter',
+                                            onPressed: ingProv.isLoadingSuggestions
+                                                ? null
+                                                : () => controller.addFromField(context),
+                                            icon: const Icon(
+                                              Icons.check_circle,
+                                              color: AppColors.text,
                                             ),
-                                            IconButton(
-                                              tooltip: 'Vider',
-                                              onPressed: () => controller.clearItems(context),
-                                              icon: const Icon(Icons.delete_outline,
-                                                  color: AppColors.text),
+                                          ),
+                                          IconButton(
+                                            tooltip: 'Vider',
+                                            onPressed: () => controller.clearItems(context),
+                                            icon: const Icon(
+                                              Icons.delete_outline,
+                                              color: AppColors.text,
                                             ),
-                                            const SizedBox(width: 6),
-                                          ],
-                                        ),
+                                          ),
+                                          const SizedBox(width: 6),
+                                        ],
                                       ),
                                     ),
                                   ),
                                 ),
+                              ),
 
-                                // ✅ status compact : ne pousse pas trop le layout
-                                const SizedBox(height: 6),
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                                  child: _CompactStatus(ingProv: ingProv),
-                                ),
-                                const SizedBox(height: 6),
-                              ],
-                            ),
+                              // Status compact
+                              const SizedBox(height: 6),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 16),
+                                child: _CompactStatus(ingProv: ingProv),
+                              ),
+                              const SizedBox(height: 6),
+                            ],
                           ),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 );
               },
@@ -229,20 +238,25 @@ class HomeTopPanel extends StatelessWidget {
 
   Widget _cat({
     required String label,
-    required IconData icon,
+    required String assetPath,
     required bool active,
     required VoidCallback onTap,
   }) {
     return CategoryTile(
       label: label,
-      icon: icon,
+      icon: Image.asset(
+        assetPath,
+        width: 24,
+        height: 24,
+        fit: BoxFit.contain,
+      ),
       active: active,
       onTap: onTap,
     );
   }
 }
 
-/// ✅ widget interne (dans le même fichier) très compact
+/// widget interne compact
 class _CompactStatus extends StatelessWidget {
   const _CompactStatus({required this.ingProv});
   final IngredientsProvider ingProv;
@@ -252,7 +266,7 @@ class _CompactStatus extends StatelessWidget {
     final hasProgress = ingProv.isLoadingSuggestions;
     final err = ingProv.suggestionsError;
 
-    if (!hasProgress && err == null) return const SizedBox(height: 0);
+    if (!hasProgress && err == null) return const SizedBox.shrink();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -265,7 +279,9 @@ class _CompactStatus extends StatelessWidget {
             err,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: AppTextStyles.muted().withColor(Theme.of(context).colorScheme.error),
+            style: AppTextStyles.muted().withColor(
+              Theme.of(context).colorScheme.error,
+            ),
           ),
         ],
       ],

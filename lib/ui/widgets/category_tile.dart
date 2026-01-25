@@ -3,7 +3,7 @@ import 'package:recette_magique/theme.dart';
 
 class CategoryTile extends StatelessWidget {
   final String label;
-  final IconData icon;
+  final Widget icon;
   final bool active;
   final VoidCallback onTap;
 
@@ -17,6 +17,8 @@ class CategoryTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final color = active ? AppColors.text : AppColors.textMuted;
+
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
@@ -26,23 +28,33 @@ class CategoryTile extends StatelessWidget {
         decoration: BoxDecoration(
           color: active ? AppColors.card : AppColors.tile,
           borderRadius: BorderRadius.circular(14),
+          border: const BorderSide(color: AppColors.border).toBorder(),
           boxShadow: const [
             BoxShadow(
               blurRadius: 10,
               offset: Offset(0, 6),
               color: AppColors.shadow,
-            )
+            ),
           ],
-          border: const BorderSide(color: AppColors.border).toBorder(),
         ),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: AppColors.text),
+            IconTheme(
+              data: IconThemeData(
+                color: color,
+                size: 24,
+              ),
+              child: icon, // Image OU Icon
+            ),
+
             const SizedBox(height: 4),
+
             Text(
               label,
+              textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    color: AppColors.text,
+                    color: color,
                     fontWeight: FontWeight.w800,
                   ),
             ),

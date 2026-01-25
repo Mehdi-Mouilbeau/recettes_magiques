@@ -20,7 +20,8 @@ function sleep(ms) {
 }
 
 /**
- * Retry helper with exponential backoff for transient errors (429/503/timeouts/network).
+ * Retry helper with exponential backoff for transient errors.
+ * IMPORTANT: do NOT retry daily quota exhaustion.
  */
 async function withRetry(fn, { retries = 3, baseMs = 500 } = {}) {
   let lastErr;
@@ -30,10 +31,17 @@ async function withRetry(fn, { retries = 3, baseMs = 500 } = {}) {
     } catch (e) {
       lastErr = e;
       const msg = String(e?.message || e);
-      const retryable =
-        /429|quota|rate|503|timeout|ETIMEDOUT|ECONNRESET|ENOTFOUND|fetch failed|EAI_AGAIN|aborted|AbortError/i.test(
+
+      const is429 = /(^| )429( |$)|code":\s*429|HTTP 429/i.test(msg);
+      const isDailyQuota =
+        /predict_requests_per_model_per_day|PerDay|per_day|Quota exceeded for metric|PredictRequestsPerDay/i.test(
           msg
         );
+
+      const retryable =
+        /503|timeout|ETIMEDOUT|ECONNRESET|ENOTFOUND|fetch failed|EAI_AGAIN|aborted|AbortError/i.test(msg) ||
+        (is429 && !isDailyQuota);
+
       if (!retryable || i === retries) break;
       await sleep(baseMs * Math.pow(2, i));
     }
@@ -63,15 +71,12 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = 25000) {
 function getModelText(result) {
   if (!result) return "";
 
-  // Most common in some SDK shapes
   if (typeof result.text === "function") return result.text();
   if (typeof result.text === "string") return result.text;
 
-  // Alternate shapes
   if (result.response?.text && typeof result.response.text === "function") return result.response.text();
   if (typeof result.response?.text === "string") return result.response.text;
 
-  // Candidates fallback
   const cand = result.candidates?.[0];
   const parts = cand?.content?.parts;
   if (Array.isArray(parts)) {
@@ -93,7 +98,6 @@ function safeJsonParse(s) {
   try {
     return JSON.parse(raw);
   } catch {
-    // Try to extract the first JSON object/array substring
     const objMatch = raw.match(/\{[\s\S]*\}/);
     if (objMatch) return JSON.parse(objMatch[0]);
 
@@ -115,24 +119,106 @@ async function verifyFirebaseIdToken(req) {
   return decoded; // { uid, ... }
 }
 
+function isQuotaErrorMessage(msg) {
+  const s = String(msg || "");
+  return /HTTP 429|RESOURCE_EXHAUSTED|predict_requests_per_model_per_day|Quota exceeded/i.test(s);
+}
+
 /* ----------------------------- OCR hardening ---------------------------- */
+
+/**
+ * Heuristic OCR fixer for French cooking recipes.
+ * Goal: fix common OCR glue/spacing/apostrophe/unit issues WITHOUT extra AI cost.
+ */
+function autocorrectOcrFrench(text) {
+  let t = String(text || "");
+
+  // --- Normalize apostrophes ---
+  t = t.replace(/[’´`]/g, "'");
+
+  // --- Normalize unicode fractions ---
+  t = t
+    .replace(/½/g, "1/2")
+    .replace(/¼/g, "1/4")
+    .replace(/¾/g, "3/4")
+    .replace(/⅓/g, "1/3")
+    .replace(/⅔/g, "2/3");
+
+  // --- Fix common OCR "l h ..." -> "l'h..." (lhhuile) ---
+  t = t.replace(/\blh([a-zà-ÿ])/gi, "l'h$1"); // lhhuile -> l'huile
+
+  // --- Restore spaces around numbers and 'à' ---
+  t = t.replace(/(\d)à(\d)/g, "$1 à $2"); // 2à3 -> 2 à 3
+  t = t.replace(/(\d)-(\d)/g, "$1 - $2"); // 8-10 -> 8 - 10
+  t = t.replace(/([a-zà-ÿ])(\d)/gi, "$1 $2"); // min8 -> min 8
+  t = t.replace(/(\d)([a-zà-ÿ])/gi, "$1 $2"); // 10min -> 10 min
+
+  // --- Restore spaces between words stuck together in steps ---
+  // ex: "Mélangezbien" => "Mélangez bien"
+  t = t.replace(/([a-zà-ÿ])([A-ZÀ-Ý])/g, "$1 $2");
+
+  // Common glued verbs
+  t = t.replace(
+    /\b(mélangez|ajoutez|faites|coupez|émincez|versez|chauffez|hachez|lavez)(bien)\b/gi,
+    "$1 $2"
+  );
+
+  // --- Units normalization ---
+  t = t
+    .replace(/\bcuill?\.?\s*à\s*s(oupe)?\b/gi, "cuil. à soupe")
+    .replace(/\bcàs\b/gi, "cuil. à soupe")
+    .replace(/\bcas\b/gi, "cuil. à soupe")
+    .replace(/\bcs\b/gi, "cuil. à soupe")
+    .replace(/\bcuill?\.?\s*à\s*c(afé)?\b/gi, "cuil. à café")
+    .replace(/\bcàc\b/gi, "cuil. à café")
+    .replace(/\bcac\b/gi, "cuil. à café");
+
+  // g / gr / grammes
+  t = t.replace(/\bgr\b/gi, "g");
+  t = t.replace(/\bgrammes?\b/gi, "g");
+
+  // ml / cl / l
+  t = t.replace(/\bmillilitres?\b/gi, "ml");
+  t = t.replace(/\bcentilitres?\b/gi, "cl");
+  t = t.replace(/\blitres?\b/gi, "l");
+
+  // --- Restore French elisions often broken/merged ---
+  t = t.replace(/\bloignon\b/gi, "l'oignon");
+  t = t.replace(/\blail\b/gi, "l'ail");
+  t = t.replace(/\blhuile\b/gi, "l'huile");
+
+  // --- Targeted fixes from your screenshots ---
+  t = t.replace(/\bcOupe-les\b/g, "coupe-les");
+  t = t.replace(/\bMélangezbien\b/g, "Mélangez bien");
+  t = t.replace(/\brevenirloignon\b/gi, "revenir l'oignon");
+  t = t.replace(/\brevenir\s+loignon\b/gi, "revenir l'oignon");
+
+  // --- Remove common “parasite” lines ---
+  t = t
+    .replace(/^\s*page\s*\d+\s*\/\s*\d+\s*$/gim, "")
+    .replace(/^\s*(www\.)\S+\s*$/gim, "")
+    .replace(/^\s*©\s*\d{4}.*$/gim, "");
+
+  // --- Cleanup whitespace ---
+  t = t.replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim();
+
+  return t;
+}
 
 function normalizeOcrText(raw) {
   let t = String(raw || "");
 
-  // normalize newlines + remove soft hyphen
   t = t.replace(/\r\n/g, "\n").replace(/\u00AD/g, "");
-  // trim weird spaces
   t = t.replace(/[ \t]+/g, " ");
   t = t.replace(/\n{3,}/g, "\n\n");
 
-  // join hyphenated words across line breaks: "choco-\nlat" -> "chocolat"
+  // join hyphenated words across line breaks
   t = t.replace(/(\p{L}+)-\n(\p{L}+)/gu, "$1$2");
 
   // normalize bullets
   t = t.replace(/[•●▪◆◦]/g, "-");
 
-  // remove lines that are almost empty
+  // drop empty lines
   const lines = t.split("\n").map((l) => l.trimEnd());
   const kept = lines.filter((l) => l.trim().length > 0);
   t = kept.join("\n");
@@ -155,20 +241,50 @@ function sanitizeRecipeJson(obj) {
 
   const allowed = new Set(["entrée", "plat", "dessert", "boisson"]);
   if (!allowed.has(out.category)) out.category = "plat";
-
   if (!out.title) out.title = "Recette";
 
-  // Trim overly long lists
   if (out.ingredients.length > 40) out.ingredients = out.ingredients.slice(0, 40);
   if (out.steps.length > 40) out.steps = out.steps.slice(0, 40);
 
-  // Clean step numbering "1) ..." / "2. ..." / "3 - ..."
   out.steps = out.steps.map((s) => s.replace(/^\s*\d+\s*[\).\-\:]\s*/g, ""));
-
-  // Remove clearly non-food noise in ingredients
   out.ingredients = out.ingredients.filter((x) => !/https?:\/\/|www\.|@|€|\bqr\b|\bcode\b/i.test(x));
 
   return out;
+}
+
+/**
+ * Optional salvage (0 AI cost): if model output is missing fields, recover some from raw text.
+ */
+function salvageFromRawText(recipe, rawText) {
+  const r = { ...recipe };
+  const txt = String(rawText || "");
+
+  if (!r.estimatedTime) {
+    const m = txt.match(/\b(\d+\s*(?:min|minutes|h|heures))\b/i);
+    if (m) r.estimatedTime = m[1];
+  }
+
+  if (!Array.isArray(r.ingredients) || r.ingredients.length === 0) {
+    const lines = txt.split("\n").map((l) => l.trim());
+    const guessed = lines
+      .filter((l) => /^[-•]\s+/.test(l))
+      .map((l) => l.replace(/^[-•]\s+/, "").trim())
+      .filter(Boolean)
+      .slice(0, 40);
+    if (guessed.length) r.ingredients = guessed;
+  }
+
+  if (!Array.isArray(r.steps) || r.steps.length === 0) {
+    const blocks = txt.split(/\n{2,}/).map((b) => b.trim()).filter(Boolean);
+    const stepLike = blocks.filter((b) => b.length > 20).slice(0, 30);
+    if (stepLike.length) r.steps = stepLike;
+  }
+
+  // Post-fix text again for safety
+  r.ingredients = (r.ingredients || []).map(autocorrectOcrFrench);
+  r.steps = (r.steps || []).map(autocorrectOcrFrench);
+
+  return r;
 }
 
 /* ---------------------------- Prompt (image) ---------------------------- */
@@ -177,33 +293,43 @@ function buildPrompt({ title, category, ingredients, strict = false }) {
   const safeTitle = String(title || "").trim().replace(/\s+/g, " ").slice(0, 80);
   const cat = String(category || "").trim().toLowerCase();
 
-  // If OCR title looks noisy, don't push it (prevents poster/cover generations)
   const titleLooksWeird =
     safeTitle.length < 4 ||
     /[^a-zA-ZÀ-ÿ0-9'’\-\s()]/.test(safeTitle) ||
     (safeTitle.match(/[A-Z]/g)?.length || 0) > safeTitle.length * 0.7;
 
-  // If category is "boisson", avoid any ambiguity by forcing drink terms
-  const drinkHint =
-    cat === "boisson"
-      ? 'This MUST be a beverage in a glass or cup (cocktail/smoothie/juice). Not a product photo.'
-      : "";
-
   const dishName = titleLooksWeird ? "" : `Dish name: "${safeTitle}".`;
 
-  // Normalize ambiguous ingredients
+  const drinkHint =
+    cat === "boisson"
+      ? "This MUST be a beverage in a glass or cup (cocktail/smoothie/juice). Not a product photo."
+      : "";
+
+  // Special anchors for common failures
+  const lowerTitle = safeTitle.toLowerCase();
+  const dishAnchor = (() => {
+    if (/\bcr[eê]pe(s)?\b/.test(lowerTitle)) {
+      return "The dish must look like French crepes: thin folded pancakes, lightly golden, on a plate, optionally with sugar or lemon.";
+    }
+    if (/\btzatziki\b/.test(lowerTitle)) {
+      return "The dish must look like tzatziki: creamy white yogurt dip with grated cucumber and herbs in a bowl.";
+    }
+    if (/\bdaiquiri\b/.test(lowerTitle) || cat === "boisson") {
+      return "The dish must look like a drink: a cold blended cocktail in a glass with ice, condensation, and a garnish (lime).";
+    }
+    return "";
+  })();
+
   const normalizeIngredient = (s) => {
     let t = String(s || "").trim().toLowerCase();
     t = t.replace(/\bpiment\s+oiseau\b/g, "small red chili pepper");
     t = t.replace(/\boiseau(x)?\b/g, "");
     t = t.replace(/[()]/g, " ");
     t = t.replace(/\s+/g, " ").trim();
-    // Remove obvious OCR junk
     t = t.replace(/https?:\/\/\S+|www\.\S+|[@€]/g, "").trim();
     return t;
   };
 
-  // Filter ingredients that don't help visual grounding
   const STOP = new Set([
     "sel",
     "poivre",
@@ -222,21 +348,6 @@ function buildPrompt({ title, category, ingredients, strict = false }) {
     .filter((x) => !STOP.has(x))
     .slice(0, 5);
 
-  // Add dish-specific anchors for common cases to reduce “wrong dish”
-  const lowerTitle = safeTitle.toLowerCase();
-  const dishAnchor = (() => {
-    if (/\bcr[eê]pe(s)?\b/.test(lowerTitle)) {
-      return "The dish must look like French crepes: thin folded pancakes, lightly golden, on a plate, optionally with sugar or lemon.";
-    }
-    if (/\btzatziki\b/.test(lowerTitle)) {
-      return "The dish must look like tzatziki: creamy white yogurt dip with grated cucumber and herbs in a bowl.";
-    }
-    if (/\bdaiquiri\b/.test(lowerTitle) || cat === "boisson") {
-      return "The dish must look like a drink: a cold blended cocktail in a glass with ice, condensation, and a garnish (lime).";
-    }
-    return "";
-  })();
-
   const base = [
     "Photorealistic food photography of a real cooked dish (edible meal).",
     dishName,
@@ -244,14 +355,14 @@ function buildPrompt({ title, category, ingredients, strict = false }) {
     drinkHint,
     dishAnchor,
     ing.length ? `Visible key ingredients in the dish: ${ing.join(", ")}.` : "",
-    "Single plated dish as the main subject, centered in frame, on a ceramic plate or bowl, on a table.",
+    "Single plated dish as the main subject, centered in frame, on a ceramic plate or bowl (or glass/cup for drinks), on a table.",
     "Three-quarter angle (about 45 degrees), shallow depth of field, DSLR look, 50mm lens, f/2.8, realistic lighting.",
     "Natural soft daylight, subtle shadows, true-to-life colors, high detail, appetizing texture, slight steam if hot.",
     "Simple neutral background (kitchen table), minimal props only (e.g., fork), no busy scenery.",
     "ABSOLUTELY NO text of any kind: no letters, no words, no subtitles, no captions, no labels, no menu, no typography.",
     "No logos, no watermarks, no branding, no packaging, no book pages, no screenshots, no UI elements.",
     "No people, no hands, no faces, no animals.",
-    "Do not generate landscapes, buildings, islands, castles, posters, banners, fashion items, clothing, or product shots — only the plated food photo.",
+    "Do not generate landscapes, buildings, posters, fashion items, clothing, jackets, jeans, or product shots — only the food/drink photo.",
   ].filter(Boolean);
 
   if (!strict) return base.join(" ");
@@ -265,20 +376,14 @@ function buildPrompt({ title, category, ingredients, strict = false }) {
   return base.concat(strictAdd).filter(Boolean).join(" ");
 }
 
-/* ---------------------- Imagen generation + validation ------------------- */
+/* ---------------------- Imagen generation (single-pass) ------------------ */
 
-/**
- * Generates an image (base64) via Imagen predict endpoint.
- * Returns: { b64, mimeType }
- */
-async function generateImageBase64({ title, category, ingredients, strict = false }) {
+async function generateImageBase64({ title, category, ingredients, strict = true }) {
   const promptText = buildPrompt({ title, category, ingredients, strict });
 
   const model = "imagen-4.0-generate-001";
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:predict`;
 
-  // Some Imagen variants accept negativePrompt; if unsupported, API will error.
-  // We'll try with it, and fallback without if needed.
   const payloadWithNeg = {
     instances: [{ prompt: promptText }],
     parameters: {
@@ -317,96 +422,25 @@ async function generateImageBase64({ title, category, ingredients, strict = fals
     const pred = data?.predictions?.[0];
     const b64 = pred?.bytesBase64Encoded;
 
-    if (!b64) {
-      throw new Error("No image bytesBase64Encoded in Imagen response");
-    }
+    if (!b64) throw new Error("No image bytesBase64Encoded in Imagen response");
     return { b64, mimeType: "image/png" };
   };
 
-  // Retry network/quota issues. Also fallback if negativePrompt unsupported.
+  // Retry only transient issues; do NOT retry daily quota exhaustion
   return await withRetry(
     async () => {
       try {
         return await doCall(payloadWithNeg);
       } catch (e) {
         const msg = String(e?.message || e);
-        // if negativePrompt unsupported, fallback without it
         if (/negativePrompt|unknown field|Invalid JSON payload|Unrecognized field/i.test(msg)) {
           return await doCall(payloadNoNeg);
         }
         throw e;
       }
     },
-    { retries: 3, baseMs: 700 }
+    { retries: 2, baseMs: 700 }
   );
-}
-
-/**
- * Validator: uses Gemini Vision as a strict judge.
- * Returns: { ok: boolean, reason: string }
- */
-async function validateGeneratedImage({ b64, title, category, ingredients }) {
-  const { GoogleGenAI } = require("@google/genai");
-  const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY.value() });
-
-  const prompt = `
-You are a strict image quality checker for a recipe app.
-Return ONLY JSON: {"ok": boolean, "reason": string}
-
-Requirements for ok=true:
-- The image clearly shows a plated cooked food dish OR, if category is "boisson", a drink in a glass/cup.
-- NO visible text/letters/typography anywhere.
-- NO people, NO animals, NO landscapes, NO buildings, NO posters/covers/UI.
-- NO fashion, NO clothing items (jackets, jeans), NO product photos, NO packshots.
-- Should look like photorealistic food photography.
-
-If the image shows clothing, fashion items, or any non-food product photo, ok MUST be false.
-
-Recipe context:
-title: ${String(title || "").slice(0, 120)}
-category: ${String(category || "")}
-ingredients: ${(Array.isArray(ingredients) ? ingredients : []).slice(0, 12).join(", ")}
-`;
-
-  const result = await withRetry(
-    async () => {
-      return await ai.models.generateContent({
-        model: "gemini-2.0-flash",
-        generationConfig: {
-          responseMimeType: "application/json",
-          temperature: 0,
-        },
-        contents: [
-          {
-            role: "user",
-            parts: [
-              { text: prompt },
-              {
-                inlineData: {
-                  mimeType: "image/png",
-                  data: b64,
-                },
-              },
-            ],
-          },
-        ],
-      });
-    },
-    { retries: 2, baseMs: 600 }
-  );
-
-  const out = getModelText(result);
-  let json;
-  try {
-    json = safeJsonParse(out);
-  } catch {
-    return { ok: false, reason: "validator_non_json" };
-  }
-
-  return {
-    ok: Boolean(json.ok),
-    reason: String(json.reason || "").slice(0, 220),
-  };
 }
 
 /* ----------------------------- 1) OCR -> JSON ---------------------------- */
@@ -419,16 +453,14 @@ exports.processRecipe = onRequest(
   },
   async (req, res) => {
     try {
-      if (req.method !== "POST") {
-        return res.status(405).json({ error: "Use POST" });
-      }
+      if (req.method !== "POST") return res.status(405).json({ error: "Use POST" });
 
       const { text } = req.body || {};
       if (!text || typeof text !== "string" || text.trim().length < 10) {
         return res.status(400).json({ error: "Missing or invalid 'text'." });
       }
 
-      const normalizedText = normalizeOcrText(text);
+      const normalizedText = autocorrectOcrFrench(normalizeOcrText(text));
 
       const { GoogleGenAI } = require("@google/genai");
       const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY.value() });
@@ -475,7 +507,10 @@ Texte OCR:
 
       const output = getModelText(result);
       const parsed = safeJsonParse(output);
-      const recipe = sanitizeRecipeJson(parsed);
+
+      // Sanitize + salvage (still zero extra AI calls)
+      let recipe = sanitizeRecipeJson(parsed);
+      recipe = salvageFromRawText(recipe, normalizedText);
 
       return res.status(200).json(recipe);
     } catch (err) {
@@ -489,7 +524,11 @@ Texte OCR:
 );
 
 /* ------------------- 2) HTTP: request regeneration ---------------------- */
-
+/**
+ * Policy:
+ * - allow at most ONE manual regeneration per recipe (imageRegenCount max 1)
+ * - if quota reached, still allow setting queued, but generation will mark quota
+ */
 exports.regenerateRecipeImage = onRequest(
   {
     region: "europe-west1",
@@ -516,14 +555,18 @@ exports.regenerateRecipeImage = onRequest(
       const data = snap.data() || {};
       if (String(data.userId || "") !== uid) return res.status(403).json({ error: "Forbidden" });
 
+      const regenCount = Number(data.imageRegenCount || 0);
+      if (regenCount >= 1) {
+        return res.status(429).json({ error: "regen_limit_reached" });
+      }
+
       await ref.set(
         {
           imageUrl: admin.firestore.FieldValue.delete(),
           imageStatus: "queued",
           imageError: admin.firestore.FieldValue.delete(),
-          imageRejectReasons: [],
-          imageAttemptCount: 0,
           regenNonce: crypto.randomUUID(),
+          imageRegenCount: admin.firestore.FieldValue.increment(1),
           imageUpdatedAt: admin.firestore.FieldValue.serverTimestamp(),
         },
         { merge: true }
@@ -549,7 +592,6 @@ async function runImageGeneration({ snap, recipeId, data }) {
   const ingredients = Array.isArray(data.ingredients) ? data.ingredients : [];
 
   if (!title || !userId) {
-    logger.warn("Missing title or userId, skipping", { recipeId });
     await snap.ref.set(
       {
         imageStatus: "error",
@@ -562,103 +604,24 @@ async function runImageGeneration({ snap, recipeId, data }) {
   }
 
   try {
-    let b64 = null;
-    let rejectReasons = [];
-    let attemptCount = 0;
+    const gen = await generateImageBase64({
+      title,
+      category,
+      ingredients,
+      strict: true,
+    });
 
-    // Try up to 2 generations (normal then strict)
-    for (let attempt = 1; attempt <= 2; attempt++) {
-      attemptCount = attempt;
+    const inputBuffer = Buffer.from(gen.b64, "base64");
 
-      const strict = attempt === 2;
-      const gen = await generateImageBase64({ title, category, ingredients, strict });
-
-      const check = await validateGeneratedImage({
-        b64: gen.b64,
-        title,
-        category,
-        ingredients,
-      });
-
-      if (check.ok) {
-        b64 = gen.b64;
-        break;
-      }
-
-      // If validator bugged (non-json), don't waste a full regen immediately:
-      if (check.reason === "validator_non_json") {
-        const check2 = await validateGeneratedImage({
-          b64: gen.b64,
-          title,
-          category,
-          ingredients,
-        });
-        if (check2.ok) {
-          b64 = gen.b64;
-          break;
-        }
-        if (check2.reason === "validator_non_json") {
-          logger.warn("Validator returned non-JSON twice; accepting image", { recipeId });
-          b64 = gen.b64;
-          break;
-        }
-        rejectReasons.push(check2.reason || "rejected");
-      } else {
-        rejectReasons.push(check.reason || "rejected");
-      }
-
-      logger.warn(`Image rejected (attempt ${attempt})`, {
-        recipeId,
-        reason: rejectReasons[rejectReasons.length - 1],
-      });
-    }
-
-    // Fallback (never return without image): generic safe dish / drink
-    if (!b64) {
-      const fallbackTitle = category.toLowerCase() === "boisson" ? "Boisson maison" : "Plat maison";
-      logger.warn("Both attempts rejected; using fallback prompt", { recipeId, rejectReasons });
-
-      const fallbackGen = await generateImageBase64({
-        title: fallbackTitle,
-        category: category || "plat",
-        ingredients: ingredients.slice(0, 3),
-        strict: true,
-      });
-
-      const fallbackCheck = await validateGeneratedImage({
-        b64: fallbackGen.b64,
-        title: fallbackTitle,
-        category: category || "plat",
-        ingredients: ingredients.slice(0, 3),
-      });
-
-      if (fallbackCheck.ok || fallbackCheck.reason === "validator_non_json") {
-        b64 = fallbackGen.b64;
-      } else {
-        b64 = fallbackGen.b64;
-        rejectReasons.push(`fallback_rejected:${fallbackCheck.reason || "rejected"}`);
-      }
-    }
-
-    await snap.ref.set(
-      {
-        imageAttemptCount: attemptCount,
-        imageRejectReasons: rejectReasons,
-      },
-      { merge: true }
-    );
-
-    const inputBuffer = Buffer.from(b64, "base64");
-
-    // Optimize: resize + WebP
     const webpBuffer = await sharp(inputBuffer)
       .resize(512, 512, { fit: "cover" })
       .webp({ quality: 78 })
       .toBuffer();
 
-    // Upload to Storage
     const bucket = admin.storage().bucket();
-    const filePath = `recipes/${userId}/${recipeId}/ai.webp`;
+
+    // versioned filename to bust cache
+    const filePath = `recipes/${userId}/${recipeId}/ai_${Date.now()}.webp`;
     const file = bucket.file(filePath);
 
     await file.save(webpBuffer, {
@@ -669,7 +632,6 @@ async function runImageGeneration({ snap, recipeId, data }) {
       },
     });
 
-    // Create download URL (token)
     const token = crypto.randomUUID();
     await file.setMetadata({
       metadata: { firebaseStorageDownloadTokens: token },
@@ -688,13 +650,17 @@ async function runImageGeneration({ snap, recipeId, data }) {
       { merge: true }
     );
 
-    logger.info("✅ Optimized WebP image generated & attached", { recipeId, filePath });
+    logger.info("✅ Image generated (single pass)", { recipeId, filePath });
   } catch (err) {
+    const msg = String(err?.message || err);
+    const isQuota = isQuotaErrorMessage(msg);
+
     logger.error("runImageGeneration failed", err);
+
     await snap.ref.set(
       {
-        imageStatus: "error",
-        imageError: String(err?.message || err).slice(0, 800),
+        imageStatus: isQuota ? "quota" : "error",
+        imageError: isQuota ? "quota_exceeded" : msg.slice(0, 800),
         imageUpdatedAt: admin.firestore.FieldValue.serverTimestamp(),
       },
       { merge: true }
@@ -716,20 +682,14 @@ exports.generateRecipeImageOnCreate = onDocumentCreated(
 
     const recipeId = event.params.recipeId;
 
-    // Transaction-based lock to prevent double-run/concurrency
+    // Lock to avoid double-run
     const locked = await admin.firestore().runTransaction(async (tx) => {
       const ref = snap.ref;
       const fresh = await tx.get(ref);
       const data = fresh.data() || {};
 
-      if (data.imageUrl) {
-        logger.info("Image already exists, skipping", { recipeId });
-        return { ok: false };
-      }
-      if (data.imageStatus === "processing") {
-        logger.info("Image already processing, skipping", { recipeId });
-        return { ok: false };
-      }
+      if (data.imageUrl) return { ok: false };
+      if (data.imageStatus === "processing") return { ok: false };
 
       tx.set(
         ref,
@@ -737,8 +697,6 @@ exports.generateRecipeImageOnCreate = onDocumentCreated(
           imageStatus: "processing",
           imageError: admin.firestore.FieldValue.delete(),
           imageUpdatedAt: admin.firestore.FieldValue.serverTimestamp(),
-          imageAttemptCount: 0,
-          imageRejectReasons: [],
         },
         { merge: true }
       );
@@ -774,15 +732,11 @@ exports.generateRecipeImageOnQueued = onDocumentUpdated(
     const beforeData = before.data() || {};
     const afterData = after.data() || {};
 
-    // Only when queued now, and either wasn't queued or regenNonce changed
     const queuedNow = afterData.imageStatus === "queued";
     const wasQueued = beforeData.imageStatus === "queued";
     const nonceChanged = afterData.regenNonce && afterData.regenNonce !== beforeData.regenNonce;
 
     if (!(queuedNow && (!wasQueued || nonceChanged))) return;
-
-    if (afterData.imageUrl) return;
-    if (afterData.imageStatus === "processing") return;
 
     // Lock to avoid double processing
     const locked = await admin.firestore().runTransaction(async (tx) => {
@@ -800,8 +754,6 @@ exports.generateRecipeImageOnQueued = onDocumentUpdated(
           imageStatus: "processing",
           imageError: admin.firestore.FieldValue.delete(),
           imageUpdatedAt: admin.firestore.FieldValue.serverTimestamp(),
-          imageAttemptCount: 0,
-          imageRejectReasons: [],
         },
         { merge: true }
       );

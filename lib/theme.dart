@@ -95,6 +95,7 @@ class AppColors {
   // Accents
   static const Color accent = Color(0xFFFFA000); // bouton orange
   static const Color control = Color(0xFFFFE07A); // boutons +/-
+  static const Color generalButton = Color(0xFFFFB743); // boutons généraux
   static const Color chipIngredients = Color(0xFFFFD68A);
   static const Color chipTime = Color(0xFFEACBFF);
 
@@ -203,7 +204,7 @@ ThemeData get appTheme => ThemeData(
       scaffoldBackgroundColor: AppColors.bg,
 
       colorScheme: const ColorScheme.light(
-        primary: AppColors.roundButton, // utilisé pour certains widgets M3
+        primary: AppColors.roundButton,
         onPrimary: Colors.white,
         secondary: AppColors.accent,
         onSecondary: AppColors.text,

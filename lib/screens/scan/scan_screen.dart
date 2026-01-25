@@ -3,60 +3,17 @@ import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'dart:typed_data';
 import 'package:image_picker/image_picker.dart';
-import 'package:firebase_analytics/firebase_analytics.dart';
 
 import 'package:recette_magique/providers/auth_provider.dart';
 import 'package:recette_magique/providers/recipe_provider.dart';
-import 'package:recette_magique/services/ocr_service.dart';
-import 'package:recette_magique/services/ai_service.dart';
-import 'package:recette_magique/models/recipe_model.dart';
+import 'package:recette_magique/screens/scan/scan_controller.dart';
+import 'package:recette_magique/theme.dart';
 
-/// Écran de scan de recette avec OCR
-/// ✅ Version "Shell-friendly" : PAS de Scaffold ici.
-/// Le Scaffold est celui du ShellRoute (_RootShell).
-class ScanScreen extends StatefulWidget {
+
+class ScanScreen extends StatelessWidget {
   const ScanScreen({super.key});
 
-  @override
-  State<ScanScreen> createState() => _ScanScreenState();
-}
-
-class _ScanScreenState extends State<ScanScreen> {
-  final ImagePicker _picker = ImagePicker();
-  final OCRService _ocrService = OCRService();
-  final AIService _aiService = AIService();
-
-  String? _imagePath;
-  Uint8List? _imageBytes;
-  String? _extractedText;
-  bool _isProcessing = false;
-  String _processingStep = '';
-
-  int? _extractServings(Map<String, dynamic> data) {
-    try {
-      final keys = ['servings', 'persons', 'nbPersons', 'people', 'portions'];
-      for (final k in keys) {
-        if (data.containsKey(k) && data[k] != null) {
-          final v = data[k];
-          if (v is int) return v;
-          if (v is double) return v.round();
-          final m = RegExp(r'(\d+)').firstMatch(v.toString());
-          if (m != null) return int.parse(m.group(1)!);
-        }
-      }
-    } catch (_) {}
-    return null;
-  }
-
-  @override
-  void dispose() {
-    _ocrService.dispose();
-    super.dispose();
-  }
-
-  void _showError(String message) {
-    if (!mounted) return;
-
+  void _showError(BuildContext context, String message) {
     final messenger = ScaffoldMessenger.maybeOf(context);
     if (messenger == null) return;
 
@@ -68,9 +25,7 @@ class _ScanScreenState extends State<ScanScreen> {
     );
   }
 
-  void _showSuccess() {
-    if (!mounted) return;
-
+  void _showSuccess(BuildContext context) {
     final messenger = ScaffoldMessenger.maybeOf(context);
     if (messenger == null) return;
 
@@ -82,124 +37,54 @@ class _ScanScreenState extends State<ScanScreen> {
     );
   }
 
-  Future<void> _pickImage(ImageSource source) async {
+  Future<void> _handlePickImage(
+    BuildContext context,
+    ImageSource source,
+    ScanController controller,
+  ) async {
     try {
-      final XFile? image = await _picker.pickImage(
-        source: source,
-        imageQuality: 100,
-        maxWidth: 3000,
-        maxHeight: 3000,
-      );
-
-      if (!mounted) return;
-
-      if (image != null) {
-        setState(() {
-          _imagePath = image.path;
-          _imageBytes = null;
-          _extractedText = null;
-        });
-
-        try {
-          final bytes = await image.readAsBytes();
-          if (!mounted) return;
-          setState(() => _imageBytes = bytes);
-        } catch (_) {
-          // ignore preview error
-        }
+      await controller.pickImage(source);
+    } catch (e) {
+      if (context.mounted) {
+        _showError(context, 'Erreur lors de la sélection de l\'image');
       }
-    } catch (_) {
-      if (!mounted) return;
-      _showError('Erreur lors de la sélection de l\'image');
     }
   }
 
-  Future<void> _processImage() async {
-    if (_imagePath == null) return;
-
-    await FirebaseAnalytics.instance.logEvent(name: 'scan_started');
-    if (!mounted) return;
-
-    setState(() {
-      _isProcessing = true;
-      _processingStep = 'Extraction du texte...';
-    });
+  Future<void> _handleProcessImage(BuildContext context) async {
+    final controller = context.read<ScanController>();
+    final authProvider = context.read<AuthProvider>();
+    final recipeProvider = context.read<RecipeProvider>();
 
     try {
-      final text = await _ocrService.extractTextFromImage(_imagePath!);
-      if (!mounted) return;
-
-      if (text == null || text.isEmpty) {
-        _showError('Aucun texte détecté dans l\'image');
-        if (!mounted) return;
-        setState(() => _isProcessing = false);
-        return;
-      }
-
-      setState(() {
-        _extractedText = text;
-        _processingStep = 'Traitement par l\'IA...';
-      });
-
-      final aiStart = DateTime.now();
-      final aiResponse = await _aiService.processRecipeText(text);
-      if (!mounted) return;
-
-      final aiDurationMs = DateTime.now().difference(aiStart).inMilliseconds;
-
-      await FirebaseAnalytics.instance.logEvent(
-        name: 'ai_recipe_processed',
-        parameters: {
-          'duration_ms': aiDurationMs,
-          'text_length': text.length,
-        },
-      );
-      if (!mounted) return;
-
-      if (aiResponse == null) {
-        _showError('Erreur lors du traitement par l\'IA');
-        if (!mounted) return;
-        setState(() => _isProcessing = false);
-        return;
-      }
-
-      setState(() {
-        _processingStep = 'Sauvegarde de la recette...';
-      });
-
-      final authProvider = context.read<AuthProvider>();
-      final recipeProvider = context.read<RecipeProvider>();
-
-      final recipe = Recipe(
+      final recipe = await controller.processImage(
         userId: authProvider.currentUser!.uid,
-        title: aiResponse['title'] as String,
-        category: RecipeCategory.fromString(aiResponse['category'] as String),
-        ingredients: List<String>.from(aiResponse['ingredients'] as List),
-        steps: List<String>.from(aiResponse['steps'] as List),
-        tags: List<String>.from(aiResponse['tags'] as List),
-        source: aiResponse['source'] as String,
-        estimatedTime: aiResponse['estimatedTime'] as String,
-        servings: _extractServings(aiResponse),
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
       );
 
-      final success = await recipeProvider.createRecipe(recipe, _imagePath);
-      if (!mounted) return;
+      if (!context.mounted) return;
 
-      setState(() => _isProcessing = false);
+      if (recipe == null) {
+        _showError(context, 'Erreur lors du traitement');
+        return;
+      }
+
+      final success = await recipeProvider.createRecipe(
+        recipe,
+        controller.imagePath,
+      );
+
+      if (!context.mounted) return;
 
       if (success) {
-        _showSuccess();
+        _showSuccess(context);
         context.go('/home');
-        return;
+      } else {
+        _showError(context, 'Erreur lors de la sauvegarde');
       }
-
-      _showError('Erreur lors de la sauvegarde');
-    } catch (_) {
-      _showError('Une erreur est survenue');
-      if (!mounted) return;
-      setState(() => _isProcessing = false);
+    } catch (e) {
+      if (context.mounted) {
+        _showError(context, e.toString().replaceAll('Exception: ', ''));
+      }
     }
   }
 
@@ -207,47 +92,59 @@ class _ScanScreenState extends State<ScanScreen> {
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).padding.bottom;
 
-    return SafeArea(
-      bottom: false, // ✅ important : évite la bande vide + artefact "rectangle"
-      child: CustomScrollView(
-        slivers: [
-          SliverAppBar(
-            pinned: true,
-            backgroundColor: Colors.transparent,
-            surfaceTintColor: Colors.transparent,
-            elevation: 0,
-            scrolledUnderElevation: 0,
-            title: const Text(
-              'Scanner une recette',
-              style: TextStyle(fontWeight: FontWeight.w700),
+    return ChangeNotifierProvider(
+      create: (_) => ScanController(),
+      child: Consumer<ScanController>(
+        builder: (context, controller, _) {
+          return SafeArea(
+            bottom: false,
+            child: CustomScrollView(
+              slivers: [
+                SliverAppBar(
+                  pinned: true,
+                  backgroundColor: Colors.transparent,
+                  surfaceTintColor: Colors.transparent,
+                  elevation: 0,
+                  scrolledUnderElevation: 0,
+                  title: const Text(
+                    'Scanner une recette',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  leading: IconButton(
+                    icon: const Icon(Icons.arrow_back),
+                    onPressed: () => context.pop(),
+                  ),
+                ),
+                SliverPadding(
+                  padding: const EdgeInsets.all(24),
+                  sliver: SliverToBoxAdapter(
+                    child: _ScanBody(
+                      imagePath: controller.imagePath,
+                      imageBytes: controller.imageBytes,
+                      extractedText: controller.extractedText,
+                      isProcessing: controller.isProcessing,
+                      processingStep: controller.processingStep,
+                      onPickCamera: () => _handlePickImage(
+                        context,
+                        ImageSource.camera,
+                        controller,
+                      ),
+                      onPickGallery: () => _handlePickImage(
+                        context,
+                        ImageSource.gallery,
+                        controller,
+                      ),
+                      onProcess: () => _handleProcessImage(context),
+                    ),
+                  ),
+                ),
+                SliverToBoxAdapter(
+                  child: SizedBox(height: 90 + bottomInset),
+                ),
+              ],
             ),
-            leading: IconButton(
-              icon: const Icon(Icons.arrow_back),
-              onPressed: () => context.pop(),
-            ),
-          ),
-
-          SliverPadding(
-            padding: const EdgeInsets.all(24),
-            sliver: SliverToBoxAdapter(
-              child: _ScanBody(
-                imagePath: _imagePath,
-                imageBytes: _imageBytes,
-                extractedText: _extractedText,
-                isProcessing: _isProcessing,
-                processingStep: _processingStep,
-                onPickCamera: () => _pickImage(ImageSource.camera),
-                onPickGallery: () => _pickImage(ImageSource.gallery),
-                onProcess: _processImage,
-              ),
-            ),
-          ),
-
-          // ✅ espace pour que le contenu ne soit pas masqué par la navbar du Shell
-          SliverToBoxAdapter(
-            child: SizedBox(height: 90 + bottomInset),
-          ),
-        ],
+          );
+        },
       ),
     );
   }
@@ -310,12 +207,13 @@ class _ScanBody extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 24),
-
         FilledButton.icon(
           onPressed: isProcessing ? null : onPickCamera,
           icon: const Icon(Icons.camera_alt_outlined),
-          label: const Text('Prendre une photo'),
+          label: const Text('Prendre une photo',
+              style: TextStyle(color: Colors.black)),
           style: FilledButton.styleFrom(
+            backgroundColor: AppColors.generalButton,
             padding: const EdgeInsets.symmetric(vertical: 16),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
@@ -323,19 +221,21 @@ class _ScanBody extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
-
         OutlinedButton.icon(
           onPressed: isProcessing ? null : onPickGallery,
           icon: const Icon(Icons.photo_library_outlined),
-          label: const Text('Choisir depuis la galerie'),
+          label: const Text(
+            'Choisir depuis la galerie',
+            style: TextStyle(color: Colors.black),
+          ),
           style: OutlinedButton.styleFrom(
+            backgroundColor: AppColors.control,
             padding: const EdgeInsets.symmetric(vertical: 16),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
             ),
           ),
         ),
-
         if (imagePath != null) ...[
           const SizedBox(height: 24),
           ClipRRect(
@@ -356,7 +256,6 @@ class _ScanBody extends StatelessWidget {
                   ),
           ),
           const SizedBox(height: 20),
-
           FilledButton(
             onPressed: isProcessing ? null : onProcess,
             style: FilledButton.styleFrom(
@@ -381,7 +280,6 @@ class _ScanBody extends StatelessWidget {
                 : const Text('Traiter la recette'),
           ),
         ],
-
         if (extractedText != null && !isProcessing) ...[
           const SizedBox(height: 24),
           const Text(

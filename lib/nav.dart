@@ -9,12 +9,12 @@ import 'package:recette_magique/services/backend_config.dart';
 import 'package:recette_magique/services/recipe_service.dart';
 import 'package:recette_magique/theme.dart';
 
-import 'package:recette_magique/screens/auth/login_screen.dart';
-import 'package:recette_magique/screens/auth/register_screen.dart';
+import 'package:recette_magique/screens/auth/login/login_screen.dart';
+import 'package:recette_magique/screens/auth/register/register_screen.dart';
 import 'package:recette_magique/screens/home/home_screen.dart';
 import 'package:recette_magique/screens/scan/scan_screen.dart';
 import 'package:recette_magique/screens/recipe/recipe_detail_screen.dart';
-import 'package:recette_magique/screens/shopping/shooping_home_screen.dart';
+import 'package:recette_magique/screens/shopping/shopping_home_screen.dart';
 import 'package:recette_magique/screens/shopping/shopping_list_screen.dart';
 import 'package:recette_magique/screens/agenda/agenda_screen.dart';
 import 'package:recette_magique/screens/account/account_screen.dart';
