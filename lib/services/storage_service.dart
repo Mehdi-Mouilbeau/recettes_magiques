@@ -1,6 +1,7 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:firebase_storage/firebase_storage.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 
 /// Service de stockage Firebase Storage
 /// Gère l'upload des images de recettes
@@ -15,12 +16,6 @@ class StorageService {
     required String recipeId,
   }) async {
     try {
-      // Sur le Web, l'accès direct au système de fichiers n'est pas supporté
-      // et image_picker retourne un blob URL. On saute l'upload pour éviter un crash.
-      if (kIsWeb) {
-        debugPrint('Web: upload d\'image ignoré (non supporté via File).');
-        return null;
-      }
       final file = File(imagePath);
       final fileName = '${DateTime.now().millisecondsSinceEpoch}.jpg';
       final path = 'recipes/$userId/$recipeId/$fileName';

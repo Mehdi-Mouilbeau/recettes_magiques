@@ -29,28 +29,7 @@ class RecipesSection extends StatelessWidget {
       delegate: SliverChildListDelegate(
         [
           // TITLE ROW
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text('Mes recettes', style: AppTextStyles.sectionTitle()),
-                ),
-                Material(
-                  color: Colors.white.withValues(alpha: 0.35),
-                  shape: const CircleBorder(),
-                  child: IconButton(
-                    tooltip: controller.showFavoritesOnly ? 'Afficher tout' : 'Afficher les favoris',
-                    onPressed: controller.toggleFavoritesOnly,
-                    icon: Icon(
-                      controller.showFavoritesOnly ? Icons.favorite : Icons.favorite_border,
-                      color: AppColors.text,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
+          Text('Mes recettes', style: AppTextStyles.sectionTitle()),
           const SizedBox(height: 12),
 
           // EMPTY / GRID

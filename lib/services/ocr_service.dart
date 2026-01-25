@@ -1,5 +1,5 @@
 import 'dart:io';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:image/image.dart' as img;
 
@@ -10,11 +10,6 @@ class OCRService {
       TextRecognizer(script: TextRecognitionScript.latin);
 
   Future<String?> extractTextFromImage(String imagePath) async {
-    if (kIsWeb) {
-      debugPrint('OCR non supporté sur le Web avec google_mlkit_text_recognition.');
-      return null;
-    }
-
     try {
       final normalizedPath = await _normalizeImageIfNeeded(imagePath);
 
@@ -46,7 +41,7 @@ class OCRService {
       final decoded = img.decodeImage(bytes);
       if (decoded == null) return imagePath;
 
-      //  applique automatiquement l’orientation EXIF si présente
+      //  applique automatiquement l'orientation EXIF si présente
       final fixed = img.bakeOrientation(decoded);
 
       // Si rien n'a changé, on peut retourner l'original
@@ -54,7 +49,7 @@ class OCRService {
       if (fixed.width == decoded.width &&
           fixed.height == decoded.height &&
           fixed.format == decoded.format) {
-        // Même dimensions / format → on évite d’écrire un nouveau fichier
+        // Même dimensions / format → on évite d'écrire un nouveau fichier
         // (optionnel, tu peux enlever ce if si tu veux toujours réécrire)
       }
 

@@ -73,17 +73,20 @@ class HomeTopPanel extends StatelessWidget {
                             IconButton(
                               tooltip: headerAction.tooltip,
                               onPressed: headerAction.onPressed(context),
-                              icon: Icon(headerAction.icon, color: AppColors.text),
+                              icon: Icon(headerAction.icon,
+                                  color: AppColors.text),
                             ),
                             IconButton(
                               tooltip: 'Déconnexion',
                               onPressed: () => controller.signOut(context),
-                              icon: const Icon(Icons.logout_outlined, color: AppColors.text),
+                              icon: const Icon(Icons.logout_outlined,
+                                  color: AppColors.text),
                             ),
                             IconButton(
                               tooltip: 'Profil',
                               onPressed: () => context.push('/account'),
-                              icon: const Icon(Icons.person, color: AppColors.text),
+                              icon: const Icon(Icons.person,
+                                  color: AppColors.text),
                             ),
                           ],
                         ),
@@ -91,8 +94,6 @@ class HomeTopPanel extends StatelessWidget {
 
                       // ----------------------------
                       // RESTE (flexible)
-                      // -> Expanded empêche l'overflow
-                      // -> Pas de scroll ressenti (NeverScrollable), mais absorbe les surplus
                       // ----------------------------
                       Expanded(
                         child: SingleChildScrollView(
@@ -102,16 +103,21 @@ class HomeTopPanel extends StatelessWidget {
                             children: [
                               // Catégories avec images assets
                               Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 18),
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 18),
                                 child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
                                   children: [
                                     _cat(
                                       label: 'Entrée',
-                                      assetPath: 'assets/icons/Icone_entree.png',
-                                      active: controller.category == RecipeCategory.entree,
+                                      assetPath:
+                                          'assets/icons/Icone_entree.png',
+                                      active: controller.category ==
+                                          RecipeCategory.entree,
                                       onTap: () => controller.setCategory(
-                                        controller.category == RecipeCategory.entree
+                                        controller.category ==
+                                                RecipeCategory.entree
                                             ? null
                                             : RecipeCategory.entree,
                                       ),
@@ -119,9 +125,11 @@ class HomeTopPanel extends StatelessWidget {
                                     _cat(
                                       label: 'Plat',
                                       assetPath: 'assets/icons/Icone_plat.png',
-                                      active: controller.category == RecipeCategory.plat,
+                                      active: controller.category ==
+                                          RecipeCategory.plat,
                                       onTap: () => controller.setCategory(
-                                        controller.category == RecipeCategory.plat
+                                        controller.category ==
+                                                RecipeCategory.plat
                                             ? null
                                             : RecipeCategory.plat,
                                       ),
@@ -129,19 +137,24 @@ class HomeTopPanel extends StatelessWidget {
                                     _cat(
                                       label: 'Dessert',
                                       assetPath: 'assets/icons/Icone_cake.png',
-                                      active: controller.category == RecipeCategory.dessert,
+                                      active: controller.category ==
+                                          RecipeCategory.dessert,
                                       onTap: () => controller.setCategory(
-                                        controller.category == RecipeCategory.dessert
+                                        controller.category ==
+                                                RecipeCategory.dessert
                                             ? null
                                             : RecipeCategory.dessert,
                                       ),
                                     ),
                                     _cat(
                                       label: 'Boisson',
-                                      assetPath: 'assets/icons/Icone_boisson.png',
-                                      active: controller.category == RecipeCategory.boisson,
+                                      assetPath:
+                                          'assets/icons/Icone_boisson.png',
+                                      active: controller.category ==
+                                          RecipeCategory.boisson,
                                       onTap: () => controller.setCategory(
-                                        controller.category == RecipeCategory.boisson
+                                        controller.category ==
+                                                RecipeCategory.boisson
                                             ? null
                                             : RecipeCategory.boisson,
                                       ),
@@ -154,70 +167,100 @@ class HomeTopPanel extends StatelessWidget {
 
                               // Search
                               Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 16),
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    color: _searchBg,
-                                    borderRadius: BorderRadius.circular(18),
-                                    boxShadow: const [
-                                      BoxShadow(
-                                        blurRadius: 18,
-                                        offset: Offset(0, 10),
-                                        color: AppColors.shadow,
-                                      ),
-                                    ],
-                                  ),
-                                  child: TextField(
-                                    controller: controller.fieldController,
-                                    textInputAction: TextInputAction.done,
-                                    onSubmitted: (_) => controller.addFromField(context),
-                                    decoration: InputDecoration(
-                                      hintText: 'Rechercher',
-                                      hintStyle: AppTextStyles.hint(),
-                                      prefixIcon: const Icon(
-                                        Icons.search,
-                                        color: AppColors.textMuted,
-                                      ),
-                                      border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(18),
-                                        borderSide: BorderSide.none,
-                                      ),
-                                      filled: true,
-                                      fillColor: _searchBg,
-                                      contentPadding: const EdgeInsets.symmetric(vertical: 12),
-                                      suffixIcon: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          IconButton(
-                                            tooltip: 'Ajouter',
-                                            onPressed: ingProv.isLoadingSuggestions
-                                                ? null
-                                                : () => controller.addFromField(context),
-                                            icon: const Icon(
-                                              Icons.check_circle,
-                                              color: AppColors.text,
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 16),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Container(
+                                        decoration: BoxDecoration(
+                                          color: _searchBg,
+                                          borderRadius:
+                                              BorderRadius.circular(18),
+                                          boxShadow: const [
+                                            BoxShadow(
+                                              blurRadius: 18,
+                                              offset: Offset(0, 10),
+                                              color: AppColors.shadow,
+                                            ),
+                                          ],
+                                        ),
+                                        child: TextField(
+                                          controller:
+                                              controller.fieldController,
+                                          textInputAction: TextInputAction.done,
+                                          onSubmitted: (_) =>
+                                              controller.addFromField(context),
+                                          decoration: InputDecoration(
+                                            hintText: 'Rechercher',
+                                            hintStyle: AppTextStyles.hint(),
+                                            prefixIcon: const Icon(
+                                              Icons.search,
+                                              color: AppColors.textMuted,
+                                            ),
+                                            border: OutlineInputBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(18),
+                                              borderSide: BorderSide.none,
+                                            ),
+                                            filled: true,
+                                            fillColor: _searchBg,
+                                            contentPadding:
+                                                const EdgeInsets.symmetric(
+                                                    vertical: 12),
+                                            suffixIcon: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                // IconButton(
+                                                //   tooltip: 'Ajouter',
+                                                //   onPressed: ingProv
+                                                //           .isLoadingSuggestions
+                                                //       ? null
+                                                //       : () => controller
+                                                //           .addFromField(
+                                                //               context),
+                                                //   icon: const Icon(
+                                                //     Icons.check_circle,
+                                                //     color: AppColors.text,
+                                                //   ),
+                                                // ),
+                                                // IconButton(
+                                                //   tooltip: 'Vider',
+                                                //   onPressed: () => controller
+                                                //       .clearItems(context),
+                                                //   icon: const Icon(
+                                                //     Icons.delete_outline,
+                                                //     color: AppColors.text,
+                                                //   ),
+                                                // ),
+                                                const SizedBox(width: 6),
+                                              ],
                                             ),
                                           ),
-                                          IconButton(
-                                            tooltip: 'Vider',
-                                            onPressed: () => controller.clearItems(context),
-                                            icon: const Icon(
-                                              Icons.delete_outline,
-                                              color: AppColors.text,
-                                            ),
-                                          ),
-                                          const SizedBox(width: 6),
-                                        ],
+                                        ),
                                       ),
                                     ),
-                                  ),
+                                    IconButton(
+                                      tooltip: controller.showFavoritesOnly
+                                          ? 'Afficher tout'
+                                          : 'Afficher les favoris',
+                                      onPressed: controller.toggleFavoritesOnly,
+                                      icon: Icon(
+                                        controller.showFavoritesOnly
+                                            ? Icons.favorite
+                                            : Icons.favorite_border,
+                                        color: AppColors.text,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
 
                               // Status compact
                               const SizedBox(height: 6),
                               Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 16),
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 16),
                                 child: _CompactStatus(ingProv: ingProv),
                               ),
                               const SizedBox(height: 6),
