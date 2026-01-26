@@ -378,69 +378,88 @@ function buildPrompt({ title, category, ingredients, strict = false }) {
 
 /* ---------------------- Imagen generation (single-pass) ------------------ */
 
+// async function generateImageBase64({ title, category, ingredients, strict = true }) {
+//   const promptText = buildPrompt({ title, category, ingredients, strict });
+
+//   const model = "imagen-4.0-generate-001";
+//   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:predict`;
+
+//   const payloadWithNeg = {
+//     instances: [{ prompt: promptText }],
+//     parameters: {
+//       sampleCount: 1,
+//       aspectRatio: "1:1",
+//       negativePrompt:
+//         "text, letters, typography, watermark, logo, poster, packaging, product, clothing, jacket, denim, jeans, people, hands, animals, landscape, building, ui, screenshot",
+//     },
+//   };
+
+//   const payloadNoNeg = {
+//     instances: [{ prompt: promptText }],
+//     parameters: { sampleCount: 1, aspectRatio: "1:1" },
+//   };
+
+//   const doCall = async (payload) => {
+//     const resp = await fetchWithTimeout(
+//       url,
+//       {
+//         method: "POST",
+//         headers: {
+//           "Content-Type": "application/json",
+//           "x-goog-api-key": GEMINI_API_KEY.value(),
+//         },
+//         body: JSON.stringify(payload),
+//       },
+//       30000
+//     );
+
+//     const raw = await resp.text();
+//     if (!resp.ok) {
+//       throw new Error(`Imagen HTTP ${resp.status}: ${raw}`);
+//     }
+
+//     const data = raw ? JSON.parse(raw) : {};
+//     const pred = data?.predictions?.[0];
+//     const b64 = pred?.bytesBase64Encoded;
+
+//     if (!b64) throw new Error("No image bytesBase64Encoded in Imagen response");
+//     return { b64, mimeType: "image/png" };
+//   };
+
+//   // Retry only transient issues; do NOT retry daily quota exhaustion
+//   return await withRetry(
+//     async () => {
+//       try {
+//         return await doCall(payloadWithNeg);
+//       } catch (e) {
+//         const msg = String(e?.message || e);
+//         if (/negativePrompt|unknown field|Invalid JSON payload|Unrecognized field/i.test(msg)) {
+//           return await doCall(payloadNoNeg);
+//         }
+//         throw e;
+//       }
+//     },
+//     { retries: 2, baseMs: 700 }
+//   );
+// }
+
+
 async function generateImageBase64({ title, category, ingredients, strict = true }) {
   const promptText = buildPrompt({ title, category, ingredients, strict });
+  const encodedPrompt = encodeURIComponent(promptText);
+  const url = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=512&height=512&model=flux&nologo=true&enhance=false`;
 
-  const model = "imagen-4.0-generate-001";
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:predict`;
-
-  const payloadWithNeg = {
-    instances: [{ prompt: promptText }],
-    parameters: {
-      sampleCount: 1,
-      aspectRatio: "1:1",
-      negativePrompt:
-        "text, letters, typography, watermark, logo, poster, packaging, product, clothing, jacket, denim, jeans, people, hands, animals, landscape, building, ui, screenshot",
-    },
+  const doCall = async () => {
+    const resp = await fetchWithTimeout(url, {}, 30000);
+    if (!resp.ok) throw new Error(`Pollinations HTTP ${resp.status}`);
+    
+    const arrayBuffer = await resp.arrayBuffer();
+    const b64 = Buffer.from(arrayBuffer).toString('base64');
+    
+    return { b64, mimeType: "image/jpeg" };
   };
 
-  const payloadNoNeg = {
-    instances: [{ prompt: promptText }],
-    parameters: { sampleCount: 1, aspectRatio: "1:1" },
-  };
-
-  const doCall = async (payload) => {
-    const resp = await fetchWithTimeout(
-      url,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-goog-api-key": GEMINI_API_KEY.value(),
-        },
-        body: JSON.stringify(payload),
-      },
-      30000
-    );
-
-    const raw = await resp.text();
-    if (!resp.ok) {
-      throw new Error(`Imagen HTTP ${resp.status}: ${raw}`);
-    }
-
-    const data = raw ? JSON.parse(raw) : {};
-    const pred = data?.predictions?.[0];
-    const b64 = pred?.bytesBase64Encoded;
-
-    if (!b64) throw new Error("No image bytesBase64Encoded in Imagen response");
-    return { b64, mimeType: "image/png" };
-  };
-
-  // Retry only transient issues; do NOT retry daily quota exhaustion
-  return await withRetry(
-    async () => {
-      try {
-        return await doCall(payloadWithNeg);
-      } catch (e) {
-        const msg = String(e?.message || e);
-        if (/negativePrompt|unknown field|Invalid JSON payload|Unrecognized field/i.test(msg)) {
-          return await doCall(payloadNoNeg);
-        }
-        throw e;
-      }
-    },
-    { retries: 2, baseMs: 700 }
-  );
+  return await withRetry(doCall, { retries: 2, baseMs: 700 });
 }
 
 /* ----------------------------- 1) OCR -> JSON ---------------------------- */

@@ -1,6 +1,7 @@
 // lib/screens/home/widgets/home_top_panel.dart
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
 import 'package:recette_magique/models/recipe_model.dart';
@@ -18,9 +19,7 @@ class HomeTopPanel extends StatelessWidget {
 
   final HomeController controller;
 
-  static const double height = 250;
-
-  static const Color _searchBg = Color(0xFFEBF5DF);
+  static const double height = 300;
 
   @override
   Widget build(BuildContext context) {
@@ -51,20 +50,23 @@ class HomeTopPanel extends StatelessWidget {
                           children: [
                             Expanded(
                               child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
+                                  Column(
+                                    children: [
+                                      Text('Recettes',
+                                          style: AppTextStyles.appTitle()),
+                                      Text(
+                                          'dans ma poche',
+                                          style: AppTextStyles.secondaryAppTitle()),
+                                          const SizedBox(height: 10),
+                                    ],
+                                  ),
                                   Image.asset(
                                     'assets/icons/mascotte.png',
-                                    width: 48,
-                                    height: 48,
+                                    width: 60,
+                                    height: 60,
                                     fit: BoxFit.contain,
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Flexible(
-                                    child: Text(
-                                      'Recettes dans ma poche',
-                                      style: AppTextStyles.brandTitle1(),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
                                   ),
                                 ],
                               ),
@@ -203,7 +205,8 @@ class HomeTopPanel extends StatelessWidget {
                                               borderSide: BorderSide.none,
                                             ),
                                             filled: true,
-                                            fillColor: AppColors.secondaryHeader,
+                                            fillColor:
+                                                AppColors.secondaryHeader,
                                             contentPadding:
                                                 const EdgeInsets.symmetric(
                                                     vertical: 12),
@@ -223,8 +226,7 @@ class HomeTopPanel extends StatelessWidget {
                                           width: 42,
                                           height: 42,
                                           decoration: BoxDecoration(
-                                            color: AppColors.secondaryHeader
-                                                ,
+                                            color: AppColors.secondaryHeader,
                                             shape: BoxShape.circle,
                                           ),
                                           child: Icon(

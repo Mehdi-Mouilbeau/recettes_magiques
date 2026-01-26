@@ -117,7 +117,7 @@ class ScanScreen extends StatelessWidget {
                     child: Column(
                       children: [
                         Text('Scan ta recette',
-                            style: AppTextStyles.sectionTitle()),
+                            style: AppTextStyles.sheetTitle()),
                         Text(
                             'Transforme ta recette papier en recette numérique',
                             style: GoogleFonts.inter(
@@ -258,9 +258,22 @@ class _ScanBody extends StatelessWidget {
           style: OutlinedButton.styleFrom(
             backgroundColor: AppColors.control,
             padding: const EdgeInsets.symmetric(vertical: 16),
+            side: BorderSide.none,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
             ),
+          ),
+        ),
+        Container(
+          margin: const EdgeInsets.only(top: 16),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppColors.secondaryHeader,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: const Text(
+            'Astuce : Afin de garantir un résultat correct, assure toi que le texte est bien lisible et que l\'éclairage est uniforme.',
+            textAlign: TextAlign.left,
           ),
         ),
         if (imagePath != null) ...[
@@ -286,6 +299,7 @@ class _ScanBody extends StatelessWidget {
           FilledButton(
             onPressed: isProcessing ? null : onProcess,
             style: FilledButton.styleFrom(
+              backgroundColor: AppColors.control,
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -304,28 +318,8 @@ class _ScanBody extends StatelessWidget {
                       Flexible(child: Text(processingStep)),
                     ],
                   )
-                : const Text('Traiter la recette'),
-          ),
-        ],
-        if (extractedText != null && !isProcessing) ...[
-          const SizedBox(height: 24),
-          const Text(
-            'Texte extrait',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.grey.shade200,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(
-              extractedText!,
-              style: const TextStyle(fontSize: 12),
-              maxLines: 10,
-              overflow: TextOverflow.ellipsis,
-            ),
+                : const Text('Traiter la recette',
+                    style: TextStyle(color: Colors.black)),
           ),
         ],
       ],

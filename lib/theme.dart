@@ -113,13 +113,26 @@ static const Color test = Color(0xFF7F9869);
 /// Typo (centralisée)
 /// --------------------
 class AppTextStyles {
-  // “RECETTES Dans Ta Poche” style (fin + letter spacing)
+  // “RECETTES dans ma poche” style (fin + letter spacing)
   static TextStyle brandTitle() => GoogleFonts.inter(
         fontSize: 28,
         letterSpacing: 2,
         fontWeight: FontWeight.w300,
         color: AppColors.text,
       );
+
+      static TextStyle appTitle() => GoogleFonts.playfairDisplay(
+        fontSize: 24,
+        fontWeight: FontWeight.w800,
+        color: AppColors.text,
+      );
+
+      static TextStyle secondaryAppTitle() => GoogleFonts.caveat(
+        fontSize: 18,
+        fontWeight: FontWeight.w600,
+        color: AppColors.text,
+      );
+
 
       static TextStyle brandTitle1() => GoogleFonts.inter(
         fontSize: 16,
