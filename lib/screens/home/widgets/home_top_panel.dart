@@ -20,8 +20,7 @@ class HomeTopPanel extends StatelessWidget {
 
   static const double height = 250;
 
-  static const Color _headerBg = Color(0xFFE3B56E);
-  static const Color _searchBg = Color(0xFFDBE6B9);
+  static const Color _searchBg = Color(0xFFEBF5DF);
 
   @override
   Widget build(BuildContext context) {
@@ -35,7 +34,7 @@ class HomeTopPanel extends StatelessWidget {
       child: SizedBox(
         height: height,
         child: DecoratedBox(
-          decoration: const BoxDecoration(color: _headerBg),
+          decoration: const BoxDecoration(color: AppColors.primaryHeader),
           child: SafeArea(
             bottom: false,
             child: LayoutBuilder(
@@ -174,7 +173,7 @@ class HomeTopPanel extends StatelessWidget {
                                     Expanded(
                                       child: Container(
                                         decoration: BoxDecoration(
-                                          color: _searchBg,
+                                          color: AppColors.secondaryHeader,
                                           borderRadius:
                                               BorderRadius.circular(18),
                                           boxShadow: const [
@@ -204,54 +203,40 @@ class HomeTopPanel extends StatelessWidget {
                                               borderSide: BorderSide.none,
                                             ),
                                             filled: true,
-                                            fillColor: _searchBg,
+                                            fillColor: AppColors.secondaryHeader,
                                             contentPadding:
                                                 const EdgeInsets.symmetric(
                                                     vertical: 12),
-                                            suffixIcon: Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                // IconButton(
-                                                //   tooltip: 'Ajouter',
-                                                //   onPressed: ingProv
-                                                //           .isLoadingSuggestions
-                                                //       ? null
-                                                //       : () => controller
-                                                //           .addFromField(
-                                                //               context),
-                                                //   icon: const Icon(
-                                                //     Icons.check_circle,
-                                                //     color: AppColors.text,
-                                                //   ),
-                                                // ),
-                                                // IconButton(
-                                                //   tooltip: 'Vider',
-                                                //   onPressed: () => controller
-                                                //       .clearItems(context),
-                                                //   icon: const Icon(
-                                                //     Icons.delete_outline,
-                                                //     color: AppColors.text,
-                                                //   ),
-                                                // ),
-                                                const SizedBox(width: 6),
-                                              ],
-                                            ),
                                           ),
                                         ),
                                       ),
                                     ),
-                                    IconButton(
-                                      tooltip: controller.showFavoritesOnly
-                                          ? 'Afficher tout'
-                                          : 'Afficher les favoris',
-                                      onPressed: controller.toggleFavoritesOnly,
-                                      icon: Icon(
-                                        controller.showFavoritesOnly
-                                            ? Icons.favorite
-                                            : Icons.favorite_border,
-                                        color: AppColors.text,
+                                    const SizedBox(width: 8),
+                                    InkWell(
+                                      onTap: controller.toggleFavoritesOnly,
+                                      borderRadius: BorderRadius.circular(999),
+                                      child: Tooltip(
+                                        message: controller.showFavoritesOnly
+                                            ? 'Afficher tout'
+                                            : 'Afficher les favoris',
+                                        child: Container(
+                                          width: 42,
+                                          height: 42,
+                                          decoration: BoxDecoration(
+                                            color: AppColors.secondaryHeader
+                                                ,
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: Icon(
+                                            controller.showFavoritesOnly
+                                                ? Icons.favorite
+                                                : Icons.favorite_border,
+                                            color: AppColors.test,
+                                            size: 18,
+                                          ),
+                                        ),
                                       ),
-                                    ),
+                                    )
                                   ],
                                 ),
                               ),

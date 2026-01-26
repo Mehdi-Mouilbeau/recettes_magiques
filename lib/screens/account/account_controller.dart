@@ -48,10 +48,6 @@ class AccountController extends ChangeNotifier {
     notifyListeners();
   }
 
-  @override
-  void dispose() {
-    super.dispose();
-  }
 
   void reset() {
     _isLoading = false;

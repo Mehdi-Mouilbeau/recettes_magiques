@@ -71,8 +71,10 @@ class AppColors {
   static const Color bgTop = Color(0xFFBAD4AA);
   static const Color bgBottom = Color(0xFFE0E0C7);
 
-  static const Color homeHeader = Color(0xFFE3B56E); // orange bandeau
-  static const Color homeSearch = Color(0xFFDBE6B9); // barre recherche
+  static const Color primaryHeader = Color(0xFFEABD74);
+  static const Color secondaryHeader = Color(0xFFEBF5DF);
+static const Color test = Color(0xFF7F9869);
+  
 
   static const LinearGradient bgGradient = LinearGradient(
     begin: Alignment.topCenter,

@@ -629,9 +629,7 @@ class _PlannerPickerSheetState extends State<_PlannerPickerSheet> {
                         child: ListTile(
                           leading: const Icon(Icons.restaurant),
                           title: Text(r.title),
-                          subtitle: r.category == null
-                              ? null
-                              : Text(r.category.toString().split('.').last),
+                          subtitle: Text(r.category.toString().split('.').last),
                           trailing: const Icon(Icons.add),
                           onTap: () async {
                             await widget.onSet(_selectedDay, _selectedSlot, r, _persons);

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'dart:typed_data';
@@ -8,7 +9,6 @@ import 'package:recette_magique/providers/auth_provider.dart';
 import 'package:recette_magique/providers/recipe_provider.dart';
 import 'package:recette_magique/screens/scan/scan_controller.dart';
 import 'package:recette_magique/theme.dart';
-
 
 class ScanScreen extends StatelessWidget {
   const ScanScreen({super.key});
@@ -96,23 +96,37 @@ class ScanScreen extends StatelessWidget {
       create: (_) => ScanController(),
       child: Consumer<ScanController>(
         builder: (context, controller, _) {
-          return SafeArea(
-            bottom: false,
+          return Container(
+            decoration: const BoxDecoration(
+              gradient: AppColors.bgGradient,
+            ),
             child: CustomScrollView(
               slivers: [
-                SliverAppBar(
-                  pinned: true,
-                  backgroundColor: Colors.transparent,
-                  surfaceTintColor: Colors.transparent,
-                  elevation: 0,
-                  scrolledUnderElevation: 0,
-                  title: const Text(
-                    'Scanner une recette',
-                    style: TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                  leading: IconButton(
-                    icon: const Icon(Icons.arrow_back),
-                    onPressed: () => context.pop(),
+                SliverToBoxAdapter(
+                  child: Container(
+                    width: double.infinity,
+                    padding: EdgeInsets.only(
+                      top: MediaQuery.of(context).padding.top + 24,
+                      bottom: 24,
+                      left: 16,
+                      right: 16,
+                    ),
+                    decoration: const BoxDecoration(
+                      color: AppColors.primaryHeader,
+                    ),
+                    child: Column(
+                      children: [
+                        Text('Scan ta recette',
+                            style: AppTextStyles.sectionTitle()),
+                        Text(
+                            'Transforme ta recette papier en recette numérique',
+                            style: GoogleFonts.inter(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.text,
+                            )),
+                      ],
+                    ),
                   ),
                 ),
                 SliverPadding(
@@ -180,13 +194,13 @@ class _ScanBody extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.blueGrey.shade50,
+            color: AppColors.secondaryHeader,
             borderRadius: BorderRadius.circular(12),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: const [
-              Row(
+            children: [
+              const Row(
                 children: [
                   Icon(Icons.info_outline),
                   SizedBox(width: 8),
@@ -196,12 +210,25 @@ class _ScanBody extends StatelessWidget {
                   ),
                 ],
               ),
-              SizedBox(height: 8),
-              Text(
-                '1. Prenez une photo claire de la recette\n'
-                '2. Le texte sera extrait automatiquement\n'
-                '3. L\'IA structurera la recette\n'
-                '4. Vérifiez et modifiez si nécessaire',
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  SizedBox(
+                    width: 200,
+                    child: const Text(
+                      '1. Prenez une photo claire de la recette\n\n'
+                      '2. Le texte sera extrait par l\'IA qui structurera la recette\n\n'
+                      '4. Vérifiez et modifiez si nécessaire',
+                      textAlign: TextAlign.left,
+                    ),
+                  ),
+                  Image.asset(
+                    'assets/icons/mascotte_scan.png',
+                    width: 90,
+                    height: 90,
+                    fit: BoxFit.contain,
+                  ),
+                ],
               ),
             ],
           ),
@@ -213,7 +240,7 @@ class _ScanBody extends StatelessWidget {
           label: const Text('Prendre une photo',
               style: TextStyle(color: Colors.black)),
           style: FilledButton.styleFrom(
-            backgroundColor: AppColors.generalButton,
+            backgroundColor: AppColors.primaryHeader,
             padding: const EdgeInsets.symmetric(vertical: 16),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
