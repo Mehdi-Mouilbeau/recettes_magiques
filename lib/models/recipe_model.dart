@@ -39,6 +39,9 @@ class Recipe {
   final List<String> steps;
   final List<String> tags;
   final String source;
+  final String? preparationTime;
+  final String? cookingTime;
+  @Deprecated('Use preparationTime and cookingTime instead')
   final String estimatedTime;
   final String? imageUrl;
   final String? scannedImageUrl;
@@ -59,7 +62,9 @@ class Recipe {
     required this.steps,
     required this.tags,
     required this.source,
-    required this.estimatedTime,
+    this.preparationTime,
+    this.cookingTime,
+    this.estimatedTime = '',
     this.imageUrl,
     this.scannedImageUrl,
     this.isFavorite = false,
@@ -78,6 +83,8 @@ class Recipe {
     'steps': steps,
     'tags': tags,
     'source': source,
+    if (preparationTime != null) 'preparationTime': preparationTime,
+    if (cookingTime != null) 'cookingTime': cookingTime,
     'estimatedTime': estimatedTime,
     'imageUrl': imageUrl,
     'scannedImageUrl': scannedImageUrl,
@@ -98,6 +105,8 @@ class Recipe {
     steps: _parseStringList(json['steps']),
     tags: _parseStringList(json['tags']),
     source: (json['source'] ?? '') as String,
+    preparationTime: json['preparationTime'] as String?,
+    cookingTime: json['cookingTime'] as String?,
     estimatedTime: (json['estimatedTime'] ?? '') as String,
     imageUrl: json['imageUrl'] as String?,
     scannedImageUrl: json['scannedImageUrl'] as String?,
@@ -118,6 +127,8 @@ class Recipe {
     List<String>? steps,
     List<String>? tags,
     String? source,
+    String? preparationTime,
+    String? cookingTime,
     String? estimatedTime,
     String? imageUrl,
     String? scannedImageUrl,
@@ -135,6 +146,8 @@ class Recipe {
     steps: steps ?? this.steps,
     tags: tags ?? this.tags,
     source: source ?? this.source,
+    preparationTime: preparationTime ?? this.preparationTime,
+    cookingTime: cookingTime ?? this.cookingTime,
     estimatedTime: estimatedTime ?? this.estimatedTime,
     imageUrl: imageUrl ?? this.imageUrl,
     scannedImageUrl: scannedImageUrl ?? this.scannedImageUrl,
