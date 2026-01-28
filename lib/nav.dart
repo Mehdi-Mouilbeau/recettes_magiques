@@ -19,7 +19,6 @@ import 'package:recette_magique/screens/shopping/shopping_list_screen.dart';
 import 'package:recette_magique/screens/agenda/agenda_screen.dart';
 import 'package:recette_magique/screens/account/account_screen.dart';
 
-
 import 'package:recette_magique/screens/cgu/legal_screen.dart';
 
 class AppRouter {
@@ -43,7 +42,6 @@ class AppRouter {
         final isLoginPage = loc == AppRoutes.login;
         final isRegisterPage = loc == AppRoutes.register;
 
-        
         final isLegalPage = loc == AppRoutes.legal;
 
         if (!isLoggedIn && !isLoginPage && !isRegisterPage && !isLegalPage) {
@@ -157,7 +155,8 @@ class AppRouter {
                       if (snapshot.hasError || snapshot.data == null) {
                         return Scaffold(
                           appBar: AppBar(),
-                          body: const Center(child: Text('Recette non trouvée')),
+                          body:
+                              const Center(child: Text('Recette non trouvée')),
                         );
                       }
                       return RecipeDetailScreen(recipe: snapshot.data!);
@@ -264,25 +263,41 @@ class _RootShell extends StatelessWidget {
                     elevation: 0,
                     selectedIndex: current,
                     onDestinationSelected: (i) => _onTap(context, i),
-                    destinations: const [
+                    destinations: [
                       NavigationDestination(
-                        icon: Icon(Icons.restaurant_menu_outlined),
-                        selectedIcon: Icon(Icons.restaurant_menu),
+                        icon: Image.asset(
+                          'assets/icons/navicons/icon_toque.png',
+                        ),
+                        selectedIcon: Image.asset(
+                          'assets/icons/navicons/icon_toque.png',
+                        ),
                         label: 'Recettes',
                       ),
                       NavigationDestination(
-                        icon: Icon(Icons.document_scanner_outlined),
-                        selectedIcon: Icon(Icons.document_scanner),
+                        icon: Image.asset(
+                          'assets/icons/navicons/icon_scan.png',
+                        ),
+                        selectedIcon: Image.asset(
+                          'assets/icons/navicons/icon_scan.png',
+                        ),
                         label: 'Scan',
                       ),
                       NavigationDestination(
-                        icon: Icon(Icons.shopping_bag_outlined),
-                        selectedIcon: Icon(Icons.shopping_bag),
+                        icon: Image.asset(
+                          'assets/icons/navicons/icon_courses.png',
+                        ),
+                        selectedIcon: Image.asset(
+                          'assets/icons/navicons/icon_courses.png',
+                        ),
                         label: 'Courses',
                       ),
                       NavigationDestination(
-                        icon: Icon(Icons.calendar_month_outlined),
-                        selectedIcon: Icon(Icons.calendar_month),
+                        icon: Image.asset(
+                          'assets/icons/navicons/icon_agenda.png',
+                        ),
+                        selectedIcon: Image.asset(
+                          'assets/icons/navicons/icon_agenda.png',
+                        ),
                         label: 'Agenda',
                       ),
                     ],

@@ -113,7 +113,7 @@ class HomeTopPanel extends StatelessWidget {
                                     _cat(
                                       label: 'Entrée',
                                       assetPath:
-                                          'assets/icons/Icone_entree.png',
+                                          'assets/icons/iconcards/icon_entree.png',
                                       active: controller.category ==
                                           RecipeCategory.entree,
                                       onTap: () => controller.setCategory(
@@ -125,7 +125,7 @@ class HomeTopPanel extends StatelessWidget {
                                     ),
                                     _cat(
                                       label: 'Plat',
-                                      assetPath: 'assets/icons/Icone_plat.png',
+                                      assetPath: 'assets/icons/iconcards/icon_plat.png',
                                       active: controller.category ==
                                           RecipeCategory.plat,
                                       onTap: () => controller.setCategory(
@@ -137,7 +137,7 @@ class HomeTopPanel extends StatelessWidget {
                                     ),
                                     _cat(
                                       label: 'Dessert',
-                                      assetPath: 'assets/icons/Icone_cake.png',
+                                      assetPath: 'assets/icons/iconcards/icon_cake.png',
                                       active: controller.category ==
                                           RecipeCategory.dessert,
                                       onTap: () => controller.setCategory(
@@ -150,7 +150,7 @@ class HomeTopPanel extends StatelessWidget {
                                     _cat(
                                       label: 'Boisson',
                                       assetPath:
-                                          'assets/icons/Icone_boisson.png',
+                                          'assets/icons/iconcards/icon_boisson.png',
                                       active: controller.category ==
                                           RecipeCategory.boisson,
                                       onTap: () => controller.setCategory(

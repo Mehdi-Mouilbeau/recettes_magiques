@@ -40,6 +40,8 @@ flutter:
   uses-material-design: true
   assets:
     - assets/icons/
+    - assets/icons/iconcards/
+    - assets/icons/navicons/
 
 
 flutter_launcher_icons:

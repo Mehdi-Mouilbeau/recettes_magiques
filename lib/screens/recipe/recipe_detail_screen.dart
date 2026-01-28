@@ -88,7 +88,8 @@ class RecipeDetailScreen extends StatelessWidget {
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(ok ? "Régénération lancée" : "Erreur lors de la régénération"),
+        content:
+            Text(ok ? "Régénération lancée" : "Erreur lors de la régénération"),
       ),
     );
   }
@@ -117,7 +118,8 @@ class RecipeDetailScreen extends StatelessWidget {
                             ? CachedNetworkImage(
                                 imageUrl: imageUrl,
                                 fit: BoxFit.cover,
-                                placeholder: (_, __) => Container(color: Colors.black12),
+                                placeholder: (_, __) =>
+                                    Container(color: Colors.black12),
                                 errorWidget: (_, __, ___) => const Icon(
                                   Icons.restaurant_menu,
                                   size: 80,
@@ -178,7 +180,9 @@ class RecipeDetailScreen extends StatelessWidget {
                                   const SizedBox(width: 10),
                                   HeartButton(
                                     isFavorite: recipe.isFavorite,
-                                    onTap: () => context.read<RecipeProvider>().toggleFavorite(recipe),
+                                    onTap: () => context
+                                        .read<RecipeProvider>()
+                                        .toggleFavorite(recipe),
                                     backgroundColor: AppColors.roundButton,
                                     iconColor: Colors.white,
                                   ),
@@ -229,7 +233,10 @@ class RecipeDetailScreen extends StatelessWidget {
                             Expanded(
                               child: Text(
                                 recipe.title,
-                                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .headlineMedium
+                                    ?.copyWith(
                                       fontWeight: FontWeight.w900,
                                       color: AppColors.text,
                                       height: 1.1,
@@ -243,37 +250,88 @@ class RecipeDetailScreen extends StatelessWidget {
 
                         const SizedBox(height: AppSpacing.md),
 
-                        Wrap(
-                          spacing: 12,
-                          runSpacing: 12,
-                          children: [
-                            InfoChip(
-                              background: AppColors.chipIngredients,
-                              icon: Icons.restaurant,
-                              label: '${recipe.ingredients.length} ingrédients',
-                            ),
-                            if (recipe.preparationTime != null && recipe.preparationTime!.isNotEmpty)
+                        Builder(
+                          builder: (context) {
+                            final chips = <Widget>[
                               InfoChip(
-                                background: AppColors.chipTime,
-                                icon: Icons.schedule,
-                                label: 'Prépa: ${recipe.preparationTime}',
+                                background: AppColors.chipIngredients,
+                                icon: Image.asset(
+                                  'assets/icons/iconcards/icon_ingredients.png',
+                                ),
+                                label:
+                                    '${recipe.ingredients.length} ingrédients',
                               ),
-                            if (recipe.cookingTime != null && recipe.cookingTime!.isNotEmpty)
-                              InfoChip(
-                                background: AppColors.chipTime.withOpacity(0.8),
-                                icon: Icons.local_fire_department,
-                                label: 'Cuisson: ${recipe.cookingTime}',
-                              ),
-                            // Fallback sur estimatedTime si les temps ne sont pas séparés
-                            if ((recipe.preparationTime == null || recipe.preparationTime!.isEmpty) &&
-                                (recipe.cookingTime == null || recipe.cookingTime!.isEmpty) &&
-                                recipe.estimatedTime.isNotEmpty)
-                              InfoChip(
-                                background: AppColors.chipTime,
-                                icon: Icons.schedule,
-                                label: recipe.estimatedTime,
-                              ),
-                          ],
+                              if (recipe.preparationTime != null &&
+                                  recipe.preparationTime!.isNotEmpty)
+                                InfoChip(
+                                  background: AppColors.chipTime,
+                                  icon: Image.asset(
+                                    'assets/icons/iconcards/icon_preparation.png',
+                                  ),
+                                  label: 'Prépa: ${recipe.preparationTime}',
+                                ),
+                              if (recipe.cookingTime != null &&
+                                  recipe.cookingTime!.isNotEmpty)
+                                InfoChip(
+                                  background:
+                                      AppColors.chipTime.withOpacity(0.8),
+                                  icon: Image.asset(
+                                    'assets/icons/iconcards/icon_plat.png',
+                                  ),
+                                  label: 'Cuisson: ${recipe.cookingTime}',
+                                ),
+                              // Fallback sur estimatedTime si les temps ne sont pas séparés
+                              if ((recipe.preparationTime == null ||
+                                      recipe.preparationTime!.isEmpty) &&
+                                  (recipe.cookingTime == null ||
+                                      recipe.cookingTime!.isEmpty) &&
+                                  recipe.estimatedTime.isNotEmpty)
+                                InfoChip(
+                                  background: AppColors.chipTime,
+                                  icon: Icons.schedule,
+                                  label: recipe.estimatedTime,
+                                ),
+                            ];
+
+                            if (chips.length == 2) {
+                              // 2 éléments côte à côte
+                              return Row(
+                                children: [
+                                  Expanded(child: chips[0]),
+                                  const SizedBox(width: 12),
+                                  Expanded(child: chips[1]),
+                                ],
+                              );
+                            } else if (chips.length == 3) {
+                              // 2 en haut, 1 centré en bas
+                              return Column(
+                                children: [
+                                  Row(
+                                    children: [
+                                      Expanded(child: chips[0]),
+                                      const SizedBox(width: 12),
+                                      Expanded(child: chips[1]),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Center(
+                                    child: SizedBox(
+                                      width: MediaQuery.of(context).size.width *
+                                          0.5,
+                                      child: chips[2],
+                                    ),
+                                  ),
+                                ],
+                              );
+                            } else {
+                              // Fallback pour 1 élément ou plus de 3
+                              return Wrap(
+                                spacing: 12,
+                                runSpacing: 12,
+                                children: chips,
+                              );
+                            }
+                          },
                         ),
 
                         const SizedBox(height: AppSpacing.lg),
@@ -283,7 +341,10 @@ class RecipeDetailScreen extends StatelessWidget {
                           children: [
                             Text(
                               'Ingrédients',
-                              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleLarge
+                                  ?.copyWith(
                                     fontWeight: FontWeight.w900,
                                     color: AppColors.text,
                                   ),
@@ -316,13 +377,17 @@ class RecipeDetailScreen extends StatelessWidget {
                               children: [
                                 const Padding(
                                   padding: EdgeInsets.only(top: 8),
-                                  child: Icon(Icons.circle, size: 7, color: AppColors.text),
+                                  child: Icon(Icons.circle,
+                                      size: 7, color: AppColors.text),
                                 ),
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: Text(
                                     controller.scaleIngredientLine(ingredient),
-                                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodyLarge
+                                        ?.copyWith(
                                           color: AppColors.text,
                                           height: 1.35,
                                         ),
@@ -340,10 +405,13 @@ class RecipeDetailScreen extends StatelessWidget {
                             height: 50,
                             child: ElevatedButton(
                               onPressed: () {
-                                context.read<ShoppingProvider>().addRecipe(recipe, controller.people);
+                                context
+                                    .read<ShoppingProvider>()
+                                    .addRecipe(recipe, controller.people);
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
-                                    content: Text('Ajouté à la liste de courses'),
+                                    content:
+                                        Text('Ajouté à la liste de courses'),
                                     behavior: SnackBarBehavior.floating,
                                   ),
                                 );
@@ -360,36 +428,54 @@ class RecipeDetailScreen extends StatelessWidget {
                         const SizedBox(height: AppSpacing.xl),
 
                         // ============ STEPS ============
-                        Text(
-                          'Préparation',
-                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                fontWeight: FontWeight.w900,
-                                color: AppColors.text,
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: AppColors.overlay,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Préparation',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .titleLarge
+                                    ?.copyWith(
+                                      fontWeight: FontWeight.w900,
+                                      color: AppColors.text,
+                                    ),
                               ),
-                        ),
-                        const SizedBox(height: AppSpacing.md),
-
-                        ...recipe.steps.asMap().entries.map((entry) {
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 14),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                StepNumberCircle(number: entry.key + 1),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Text(
-                                    entry.value,
-                                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                          color: AppColors.text,
-                                          height: 1.35,
+                              const SizedBox(height: AppSpacing.md),
+                              ...recipe.steps.asMap().entries.map((entry) {
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 14),
+                                  child: Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      StepNumberCircle(number: entry.key + 1),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Text(
+                                          entry.value,
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodyLarge
+                                              ?.copyWith(
+                                                color: AppColors.text,
+                                                height: 1.35,
+                                              ),
                                         ),
+                                      ),
+                                    ],
                                   ),
-                                ),
-                              ],
-                            ),
-                          );
-                        }),
+                                );
+                              }),
+                            ],
+                          ),
+                        ),
 
                         const SizedBox(height: AppSpacing.xl),
 
@@ -399,8 +485,10 @@ class RecipeDetailScreen extends StatelessWidget {
                           icon: const Icon(Icons.delete_outline),
                           label: const Text('Supprimer cette recette'),
                           style: OutlinedButton.styleFrom(
-                            foregroundColor: Theme.of(context).colorScheme.error,
-                            side: BorderSide(color: Theme.of(context).colorScheme.error),
+                            foregroundColor:
+                                Theme.of(context).colorScheme.error,
+                            side: BorderSide(
+                                color: Theme.of(context).colorScheme.error),
                             padding: const EdgeInsets.symmetric(vertical: 16),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(AppRadius.md),
@@ -413,10 +501,11 @@ class RecipeDetailScreen extends StatelessWidget {
                         // ============ NOTE ============
                         Text(
                           'Note',
-                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                fontWeight: FontWeight.w900,
-                                color: AppColors.text,
-                              ),
+                          style:
+                              Theme.of(context).textTheme.titleLarge?.copyWith(
+                                    fontWeight: FontWeight.w900,
+                                    color: AppColors.text,
+                                  ),
                         ),
                         const SizedBox(height: AppSpacing.sm),
 
@@ -443,7 +532,9 @@ class RecipeDetailScreen extends StatelessWidget {
                                 child: ElevatedButton.icon(
                                   onPressed: () async {
                                     if (recipe.id == null) return;
-                                    final ok = await context.read<RecipeProvider>().updateNote(
+                                    final ok = await context
+                                        .read<RecipeProvider>()
+                                        .updateNote(
                                           recipe.id!,
                                           controller.noteController.text.trim(),
                                         );
@@ -451,7 +542,9 @@ class RecipeDetailScreen extends StatelessWidget {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
                                         content: Text(
-                                          ok ? 'Note enregistrée' : 'Erreur lors de l\'enregistrement',
+                                          ok
+                                              ? 'Note enregistrée'
+                                              : 'Erreur lors de l\'enregistrement',
                                         ),
                                       ),
                                     );
@@ -459,7 +552,8 @@ class RecipeDetailScreen extends StatelessWidget {
                                   icon: const Icon(Icons.save),
                                   label: const Text(
                                     'Enregistrer',
-                                    style: TextStyle(fontWeight: FontWeight.w900),
+                                    style:
+                                        TextStyle(fontWeight: FontWeight.w900),
                                   ),
                                 ),
                               ),

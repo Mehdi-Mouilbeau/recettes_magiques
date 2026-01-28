@@ -73,8 +73,8 @@ class AppColors {
 
   static const Color primaryHeader = Color(0xFFEABD74);
   static const Color secondaryHeader = Color(0xFFEBF5DF);
-static const Color test = Color(0xFF7F9869);
-  
+  static const Color test = Color(0xFF7F9869);
+  static const Color overlay = Color(0xFFD6E1B8);
 
   static const LinearGradient bgGradient = LinearGradient(
     begin: Alignment.topCenter,
@@ -121,20 +121,19 @@ class AppTextStyles {
         color: AppColors.text,
       );
 
-      static TextStyle appTitle() => GoogleFonts.playfairDisplay(
+  static TextStyle appTitle() => GoogleFonts.playfairDisplay(
         fontSize: 24,
         fontWeight: FontWeight.w800,
         color: AppColors.text,
       );
 
-      static TextStyle secondaryAppTitle() => GoogleFonts.caveat(
+  static TextStyle secondaryAppTitle() => GoogleFonts.caveat(
         fontSize: 18,
         fontWeight: FontWeight.w600,
         color: AppColors.text,
       );
 
-
-      static TextStyle brandTitle1() => GoogleFonts.inter(
+  static TextStyle brandTitle1() => GoogleFonts.inter(
         fontSize: 16,
         letterSpacing: 2,
         fontWeight: FontWeight.w300,
@@ -183,7 +182,6 @@ class AppTextStyles {
         fontWeight: FontWeight.w700,
         color: AppColors.text,
       );
-
 
   static TextStyle sheetTitle() => GoogleFonts.inter(
         fontSize: 22,

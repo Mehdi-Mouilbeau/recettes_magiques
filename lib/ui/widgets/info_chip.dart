@@ -3,7 +3,7 @@ import 'package:recette_magique/theme.dart';
 
 class InfoChip extends StatelessWidget {
   final Color background;
-  final IconData icon;
+  final dynamic icon;
   final String label;
   final Color? textColor;
   final Color? iconColor;
@@ -25,10 +25,16 @@ class InfoChip extends StatelessWidget {
         color: background,
         borderRadius: BorderRadius.circular(AppRadius.pill),
       ),
-      child: Row(
+      child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 18, color: iconColor ?? AppColors.text),
+          icon is IconData
+              ? Icon(icon as IconData, size: 18, color: iconColor ?? AppColors.text)
+              : SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: icon as Widget,
+                ),
           const SizedBox(width: 10),
           Text(
             label,
