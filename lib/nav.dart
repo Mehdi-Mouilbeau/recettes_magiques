@@ -19,7 +19,7 @@ import 'package:recette_magique/screens/shopping/shopping_list_screen.dart';
 import 'package:recette_magique/screens/agenda/agenda_screen.dart';
 import 'package:recette_magique/screens/account/account_screen.dart';
 
-// ✅ AJOUTE TON ÉCRAN CGU / Mentions / Privacy
+
 import 'package:recette_magique/screens/cgu/legal_screen.dart';
 
 class AppRouter {
@@ -43,7 +43,7 @@ class AppRouter {
         final isLoginPage = loc == AppRoutes.login;
         final isRegisterPage = loc == AppRoutes.register;
 
-        // ✅ On autorise /legal même si pas connecté
+        
         final isLegalPage = loc == AppRoutes.legal;
 
         if (!isLoggedIn && !isLoginPage && !isRegisterPage && !isLegalPage) {
@@ -71,7 +71,7 @@ class AppRouter {
               const NoTransitionPage(child: RegisterScreen()),
         ),
 
-        // ✅ Route CGU / Mentions / Privacy (accessible avant login)
+        // Route CGU / Mentions / Privacy (accessible avant login)
         GoRoute(
           path: AppRoutes.legal,
           name: 'legal',
@@ -108,7 +108,7 @@ class AppRouter {
                   const NoTransitionPage(child: AgendaScreen()),
             ),
 
-            // ✅ Account dans le shell (garde la bottom bar)
+            // Account dans le shell (garde la bottom bar)
             GoRoute(
               path: AppRoutes.account,
               name: 'account',
@@ -201,7 +201,6 @@ class AppRoutes {
 
   static const String account = '/account';
 
-  // ✅ AJOUT
   static const String legal = '/legal';
 }
 

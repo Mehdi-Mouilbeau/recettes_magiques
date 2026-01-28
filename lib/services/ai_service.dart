@@ -5,7 +5,7 @@ import 'package:http/http.dart' as http;
 /// Service IA pour transformer le texte OCR en recette structurée
 /// Appelle une Cloud Function Firebase (Gemini)
 class AIService {
-  /// ✅ URL de la Cloud Function déployée
+  /// URL de la Cloud Function déployée
   static const String _cloudFunctionUrl =
       'https://europe-west1-recette-magique-7de15.cloudfunctions.net/processRecipe';
 
@@ -19,11 +19,13 @@ class AIService {
   ///   "steps": [],
   ///   "tags": [],
   ///   "source": "",
+  ///   "preparationTime": "",
+  ///   "cookingTime": "",
   ///   "estimatedTime": ""
   /// }
   Future<Map<String, dynamic>?> processRecipeText(String ocrText) async {
     try {
-      debugPrint('📤 Envoi du texte à l’IA (${ocrText.length} caractères)');
+      debugPrint('📤 Envoi du texte à l\'IA (${ocrText.length} caractères)');
 
       final response = await http
           .post(
@@ -48,47 +50,5 @@ class AIService {
       debugPrint('🔥 Erreur traitement IA : $e');
       return null;
     }
-  }
-
-  /// Simulation locale pour les tests (DEV uniquement)
-  Future<Map<String, dynamic>> mockProcessRecipeText(String ocrText) async {
-    await Future.delayed(const Duration(seconds: 2));
-
-    final lowerText = ocrText.toLowerCase();
-    String category = 'plat';
-
-    if (lowerText.contains('dessert') ||
-        lowerText.contains('gâteau') ||
-        lowerText.contains('tarte') ||
-        lowerText.contains('crème')) {
-      category = 'dessert';
-    } else if (lowerText.contains('salade') ||
-        lowerText.contains('soupe') ||
-        lowerText.contains('entrée')) {
-      category = 'entrée';
-    } else if (lowerText.contains('jus') ||
-        lowerText.contains('boisson') ||
-        lowerText.contains('cocktail')) {
-      category = 'boisson';
-    }
-
-    return {
-      'title': 'Recette extraite',
-      'category': category,
-      'ingredients': [
-        'Ingrédient 1',
-        'Ingrédient 2',
-        'Ingrédient 3',
-      ],
-      'steps': [
-        'Préparer les ingrédients',
-        'Mélanger',
-        'Cuire',
-        'Servir',
-      ],
-      'tags': ['scan', 'test'],
-      'source': 'OCR',
-      'estimatedTime': '30 min',
-    };
   }
 }

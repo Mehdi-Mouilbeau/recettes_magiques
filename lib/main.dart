@@ -15,11 +15,9 @@ import 'package:recette_magique/theme.dart';
 import 'nav.dart';
 
 void main() {
-  // Lancement ultra-rapide sans initialisation
   runApp(const AppInitializer());
 }
 
-/// Widget qui gère l'initialisation asynchrone
 class AppInitializer extends StatefulWidget {
   const AppInitializer({super.key});
 
@@ -136,7 +134,7 @@ class MyApp extends StatelessWidget {
       child: Builder(
         builder: (context) {
           return MaterialApp.router(
-            title: 'RECETTES Dans Ta Poche',
+            title: 'RECETTES dans ma poche',
             debugShowCheckedModeBanner: false,
             routerConfig: AppRouter.buildRouter(
               analyticsObserver: analyticsObserver,

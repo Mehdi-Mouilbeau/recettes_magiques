@@ -4,7 +4,7 @@ import 'package:recette_magique/services/auth_service.dart';
 import 'package:recette_magique/models/user_model.dart';
 import 'package:recette_magique/services/backend_config.dart';
 
-// ✅ Ajouts pour suppression compte + données
+// Ajouts pour suppression compte + données
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 
@@ -117,12 +117,13 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// ✅ SUPPRESSION COMPTE (obligatoire iOS)
+  /// - SUPPRESSION COMPTE (obligatoire iOS)
   /// - supprime les recettes Firestore (recipes où userId == uid)
   /// - supprime les fichiers Storage dans recipes/{uid}/...
   /// - supprime le compte Firebase Auth
   ///
   /// Retourne true si OK, false sinon (message dans errorMessage)
+  /// 
   Future<bool> deleteAccountAndData() async {
     if (!BackendConfig.firebaseReady) {
       _errorMessage =
@@ -157,8 +158,8 @@ class AuthProvider extends ChangeNotifier {
       final rootRef = FirebaseStorage.instance.ref().child('recipes/$uid');
       await _deleteStorageFolderRecursive(rootRef);
 
-      // 3) (optionnel) Supprimer aussi un doc "users/{uid}" si tu en as un
-      // -> décommente si tu utilises une collection users
+      // 3) (optionnel) Supprimer aussi un doc "users/{uid}" s'il y a en a un'
+      // -> à décommenter si utilisatio d'une collection users
       // await FirebaseFirestore.instance.collection('users').doc(uid).delete();
 
       // 4) Supprimer le compte Auth
@@ -190,7 +191,7 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  /// ✅ Supprime récursivement les fichiers d'un "dossier" Storage
+  /// Supprime récursivement les fichiers d'un "dossier" Storage
   Future<void> _deleteStorageFolderRecursive(Reference ref) async {
     try {
       final list = await ref.listAll();

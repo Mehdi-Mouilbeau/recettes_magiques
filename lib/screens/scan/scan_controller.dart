@@ -127,7 +127,10 @@ class ScanController extends ChangeNotifier {
         steps: List<String>.from(aiResponse['steps'] as List),
         tags: List<String>.from(aiResponse['tags'] as List),
         source: aiResponse['source'] as String,
-        estimatedTime: aiResponse['estimatedTime'] as String,
+        preparationTime: aiResponse['preparationTime'] as String?, 
+        cookingTime: aiResponse['cookingTime'] as String?, 
+        estimatedTime: aiResponse['estimatedTime'] as String? ??
+            '', // ⬅️ MODIFIER (rendre nullable)
         servings: _extractServings(aiResponse),
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
