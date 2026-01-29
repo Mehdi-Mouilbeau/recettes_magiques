@@ -244,7 +244,7 @@ function calculateTotalTime(prepTime, cookTime) {
   if (!prepTime && !cookTime) return "";
   if (!cookTime) return prepTime;
   if (!prepTime) return cookTime;
-  
+
   // Parse et additionne les temps
   const parseTime = (timeStr) => {
     if (!timeStr) return 0;
@@ -254,11 +254,11 @@ function calculateTotalTime(prepTime, cookTime) {
     const mins = minMatch ? parseInt(minMatch[1]) : 0;
     return hours * 60 + mins;
   };
-  
+
   const totalMins = parseTime(prepTime) + parseTime(cookTime);
   const hours = Math.floor(totalMins / 60);
   const mins = totalMins % 60;
-  
+
   if (hours > 0 && mins > 0) return `${hours} h ${mins} min`;
   if (hours > 0) return `${hours} h`;
   return `${mins} min`;
@@ -351,15 +351,16 @@ function salvageFromRawText(recipe, rawText) {
 }
 
 /* ---------------------------- Prompt (image) ---------------------------- */
-
 function buildPrompt({ title, category, ingredients, strict = false }) {
   const safeTitle = String(title || "")
     .trim()
     .replace(/\s+/g, " ")
     .slice(0, 80);
+
   const cat = String(category || "")
     .trim()
     .toLowerCase();
+  const lowerTitle = safeTitle.toLowerCase();
 
   const titleLooksWeird =
     safeTitle.length < 4 ||
@@ -370,24 +371,10 @@ function buildPrompt({ title, category, ingredients, strict = false }) {
 
   const drinkHint =
     cat === "boisson"
-      ? "This MUST be a beverage in a glass or cup (cocktail/smoothie/juice). Not a product photo."
+      ? "This MUST be a beverage served in a glass or cup (cocktail/smoothie/juice). Not a product photo."
       : "";
 
-  // Special anchors for common failures
-  const lowerTitle = safeTitle.toLowerCase();
-  const dishAnchor = (() => {
-    if (/\bcr[eê]pe(s)?\b/.test(lowerTitle)) {
-      return "The dish must look like French crepes: thin folded pancakes, lightly golden, on a plate, optionally with sugar or lemon.";
-    }
-    if (/\btzatziki\b/.test(lowerTitle)) {
-      return "The dish must look like tzatziki: creamy white yogurt dip with grated cucumber and herbs in a bowl.";
-    }
-    if (/\bdaiquiri\b/.test(lowerTitle) || cat === "boisson") {
-      return "The dish must look like a drink: a cold blended cocktail in a glass with ice, condensation, and a garnish (lime).";
-    }
-    return "";
-  })();
-
+  // ---------- helpers ----------
   const normalizeIngredient = (s) => {
     let t = String(s || "")
       .trim()
@@ -400,6 +387,7 @@ function buildPrompt({ title, category, ingredients, strict = false }) {
     return t;
   };
 
+  // ingrédients très génériques => on les enlève, mais garde l'essentiel
   const STOP = new Set([
     "sel",
     "poivre",
@@ -412,11 +400,89 @@ function buildPrompt({ title, category, ingredients, strict = false }) {
     "farine",
   ]);
 
-  const ing = (Array.isArray(ingredients) ? ingredients : [])
+  const ingAll = (Array.isArray(ingredients) ? ingredients : [])
     .map(normalizeIngredient)
     .filter(Boolean)
-    .filter((x) => !STOP.has(x))
-    .slice(0, 5);
+    .filter((x) => !STOP.has(x));
+
+  // Mets un peu plus d’ingrédients visibles (évite les sorties trop “génériques”)
+  const ing = ingAll.slice(0, 7);
+
+  // ---------- dish shape detection ----------
+  const isSoupLike =
+    /\b(soupe|potage|velout[eé]|bouillon|consomm[eé]|ramen|pho)\b/.test(
+      lowerTitle,
+    ) || /\b(soupe|potage|velout[eé]|bouillon)\b/.test(cat);
+
+  const isStewLike =
+    /\b(rago[uû]t|curry|chili|daube|tajine|ragout|stew)\b/.test(lowerTitle);
+
+  const isSaladLike = /\b(salade)\b/.test(lowerTitle);
+
+  const dishVessel = (() => {
+    if (cat === "boisson") return "in a glass or cup";
+    if (isSoupLike) return "in a bowl";
+    if (isStewLike) return "in a bowl";
+    if (isSaladLike) return "in a bowl";
+    return "on a ceramic plate or bowl";
+  })();
+
+  // ---------- accompaniment / extra foods ----------
+  // Objectif: 1–2 éléments “autour” du plat (sans devenir une scène chargée)
+  const hasTomato =
+    ingAll.some((x) => /\btomate(s)?\b/.test(x)) ||
+    /\btomate(s)?\b/.test(lowerTitle);
+  const hasBasil =
+    ingAll.some((x) => /\bbasilic\b/.test(x)) ||
+    /\bbasil\b/.test(ingAll.join(" "));
+  const hasCream = ingAll.some((x) => /\b(cr[eè]me|cream)\b/.test(x));
+
+  const extraFoods = (() => {
+    if (cat === "boisson") return ["a citrus garnish", "ice cubes"];
+    if (isSoupLike && hasTomato) {
+      // Soupe tomate: le trio gagnant visuel
+      const arr = ["a slice of crusty bread or croutons"];
+      arr.push(
+        hasCream
+          ? "a visible cream swirl on top"
+          : "a small cream swirl on top",
+      );
+      arr.push(
+        hasBasil ? "fresh basil leaves as garnish" : "fresh herbs as garnish",
+      );
+      return arr.slice(0, 2); // 1–2 éléments max
+    }
+    if (isSoupLike)
+      return ["a slice of crusty bread", "fresh herbs garnish"].slice(0, 2);
+    if (isStewLike) return ["a small side of rice or flatbread"].slice(0, 1);
+    return ["a simple garnish (herbs/lemon wedge)"].slice(0, 1);
+  })();
+
+  // ---------- anchors for common failures ----------
+  const dishAnchor = (() => {
+    if (/\bcr[eê]pe(s)?\b/.test(lowerTitle)) {
+      return "The dish must look like French crepes: thin folded pancakes, lightly golden, on a plate, optionally with sugar or lemon.";
+    }
+    if (/\btzatziki\b/.test(lowerTitle)) {
+      return "The dish must look like tzatziki: creamy white yogurt dip with grated cucumber and herbs in a bowl.";
+    }
+    if (/\bdaiquiri\b/.test(lowerTitle) || cat === "boisson") {
+      return "The dish must look like a drink: a cold cocktail in a glass with condensation and a garnish (lime).";
+    }
+    if (isSoupLike) {
+      return "The dish MUST clearly be a soup: a liquid/velvety texture served in a bowl, with a spoon nearby, slight steam if hot. Not sliced tomatoes, not a salad, not raw ingredients.";
+    }
+    return "";
+  })();
+
+  // ---------- negatives (targeted) ----------
+  const soupNegatives = isSoupLike
+    ? [
+        "Do NOT depict whole raw tomatoes on a plate as the main subject.",
+        "Do NOT show a salad-like arrangement or sliced tomatoes as a dish.",
+        "Avoid ingredient still-life or raw produce photography; it must be a cooked soup in a bowl.",
+      ].join(" ")
+    : "";
 
   const base = [
     "Photorealistic food photography of a real cooked dish (edible meal).",
@@ -424,11 +490,23 @@ function buildPrompt({ title, category, ingredients, strict = false }) {
     cat ? `Dish type: ${cat}.` : "",
     drinkHint,
     dishAnchor,
-    ing.length ? `Visible key ingredients in the dish: ${ing.join(", ")}.` : "",
-    "Single plated dish as the main subject, centered in frame, on a ceramic plate or bowl (or glass/cup for drinks), on a table.",
+
+    ing.length
+      ? `Visible key ingredients cooked into the dish: ${ing.join(", ")}.`
+      : "",
+
+    extraFoods.length
+      ? `Also include 1–2 small complementary foods/garnishes near the main dish: ${extraFoods.join(
+          ", ",
+        )}.`
+      : "",
+
+    `Single main dish centered in frame, served ${dishVessel}, on a neutral tabletop.`,
     "Three-quarter angle (about 45 degrees), shallow depth of field, DSLR look, 50mm lens, f/2.8, realistic lighting.",
     "Natural soft daylight, subtle shadows, true-to-life colors, high detail, appetizing texture, slight steam if hot.",
-    "Simple neutral background (kitchen table), minimal props only (e.g., fork), no busy scenery.",
+    "Simple neutral background, minimal props only (e.g., spoon for soup, fork for mains).",
+    soupNegatives,
+
     "ABSOLUTELY NO text of any kind: no letters, no words, no subtitles, no captions, no labels, no menu, no typography.",
     "No logos, no watermarks, no branding, no packaging, no book pages, no screenshots, no UI elements.",
     "No people, no hands, no faces, no animals.",
@@ -438,9 +516,9 @@ function buildPrompt({ title, category, ingredients, strict = false }) {
   if (!strict) return base.join(" ");
 
   const strictAdd = [
-    "Food-only packshot: image must contain ONLY the plated dish (or drink in a glass) and a neutral tabletop background.",
+    "Food-only packshot: image must contain ONLY the main dish plus up to two small complementary foods/garnishes, and a neutral tabletop background.",
     "No decorative scenery, no nature, no architecture, no fashion, no portraits, no products.",
-    "If uncertain, generate a simple realistic plated dish photo rather than anything else.",
+    "If uncertain, generate a simple realistic cooked dish photo that matches the dish type.",
   ];
 
   return base.concat(strictAdd).filter(Boolean).join(" ");
@@ -490,62 +568,98 @@ exports.processRecipe = onRequest(
 
       const normalizedText = autocorrectOcrFrench(normalizeOcrText(text));
 
+      logger.info("📝 OCR INPUT:", {
+        textLength: normalizedText.length,
+        preview: normalizedText.slice(0, 200),
+      });
+
       const { GoogleGenAI } = require("@google/genai");
       const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY.value() });
 
       const prompt = `
-Tu es un expert en analyse de recettes de cuisine. Transforme ce texte OCR de recette en JSON structuré.
-Retourne UNIQUEMENT un objet JSON valide (sans markdown, sans texte autour).
+Tu es un expert culinaire français spécialisé dans la classification des recettes.
 
-RÈGLES IMPORTANTES POUR LA CATÉGORIE:
-- Analyse attentivement le type de plat
-- "entrée": apéritifs, salades en entrée, soupes froides/chaudes, terrines, verrines, tartares, carpaccios, feuilletés apéritifs, amuse-bouches, toasts
-- "plat": plats principaux avec viande/poisson/végétarien, gratins, quiches, pizzas, pâtes en plat principal, riz en plat principal
-- "dessert": gâteaux, tartes sucrées, crèmes, mousses, glaces, compotes, fruits cuits, biscuits
-- "boisson": cocktails, smoothies, jus, infusions, boissons chaudes ou froides
+ÉTAPE 1 - ANALYSE DU TYPE DE PLAT:
+Lis attentivement le titre et les ingrédients pour déterminer la catégorie.
+
+CATÉGORIES (choix OBLIGATOIRE parmi ces 4 uniquement):
+
+"entrée" = Tout plat servi EN DÉBUT DE REPAS:
+  ✓ Toutes les soupes (chaudes ou froides): velouté, potage, gaspacho, minestrone, soupe à l'oignon
+  ✓ Toutes les salades servies en début de repas: salade composée, salade de chèvre chaud, salade niçoise
+  ✓ Terrines et pâtés: terrine de campagne, terrine de saumon, pâté en croûte
+  ✓ Plats froids d'entrée: carpaccio, tartare (saumon, bœuf), ceviche
+  ✓ Verrines et amuse-bouches: verrine avocat crevette, œufs mimosa
+  ✓ Feuilletés apéritifs: feuilleté au fromage, vol-au-vent
+  ✓ Toasts et bruschetta: toast au saumon fumé, bruschetta tomate
+  ✓ Œufs en entrée: œufs cocotte, œufs en meurette
+
+"plat" = Plat principal, CŒUR DU REPAS:
+  ✓ Viandes: poulet rôti, bœuf bourguignon, côtelettes d'agneau
+  ✓ Poissons en plat: saumon grillé, sole meunière, poisson au four
+  ✓ Gratins: gratin dauphinois, gratin de pâtes
+  ✓ Quiches et tartes salées: quiche lorraine, tarte aux légumes
+  ✓ Plats de pâtes/riz: spaghetti bolognaise, risotto, paella
+  ✓ Plats végétariens principaux: curry de légumes, tajine
+  ✓ Pizzas
+
+"dessert" = Plat sucré servi EN FIN DE REPAS:
+  ✓ Gâteaux: gâteau au chocolat, cake, brownie
+  ✓ Tartes sucrées: tarte aux pommes, tarte au citron
+  ✓ Crèmes et mousses: crème brûlée, mousse au chocolat, panna cotta
+  ✓ Glaces et sorbets
+  ✓ Fruits cuits: compote, fruits rôtis
+  ✓ Biscuits et cookies
+
+"boisson" = Liquide à boire:
+  ✓ Cocktails: mojito, daiquiri
+  ✓ Smoothies et milkshakes
+  ✓ Jus de fruits frais
+  ✓ Boissons chaudes: chocolat chaud, infusions
+
+ÉTAPE 2 - RÈGLE DÉCISIVE:
+- Si c'est une SOUPE → TOUJOURS "entrée"
+- Si c'est une SALADE (sans viande grillée comme plat principal) → "entrée"
+- Si c'est une TERRINE/PÂTÉ → "entrée"
+- Si c'est SUCRÉ → "dessert"
+- Si c'est de la VIANDE/POISSON avec garniture → "plat"
+- Si c'est un GRATIN/QUICHE → "plat"
 
 RÈGLES POUR LES TEMPS:
-- Sépare TOUJOURS le temps de préparation et le temps de cuisson s'ils sont mentionnés
-- Si un seul temps est donné, mets-le dans preparationTime
-- Format attendu: "X min", "X h", "X h Y min"
-- Si aucun temps n'est trouvé, laisse les champs vides ""
+- Sépare le temps de préparation et le temps de cuisson s'ils sont mentionnés
+- Format: "X min" ou "X h Y min"
+- Si absent, laisse ""
 
-CONTRAINTES:
-- category: EXACTEMENT l'un de ces mots: "entrée", "plat", "dessert", "boisson"
-- ingredients: liste de chaînes (chaque ingrédient avec sa quantité)
-- steps: liste de chaînes (chaque étape numérotée)
-- tags: liste de mots-clés pertinents (ex: "végétarien", "rapide", "sans gluten", "facile")
-- source: nom du livre/site/auteur si mentionné, sinon ""
-- preparationTime: temps de préparation uniquement
-- cookingTime: temps de cuisson uniquement (four, plaque, etc.)
-
-Format de sortie:
+FORMAT JSON (retourne UNIQUEMENT ce JSON, sans texte avant/après, sans markdown):
 {
-  "title": "Nom de la recette",
+  "title": "Nom exact de la recette",
   "category": "entrée | plat | dessert | boisson",
-  "ingredients": ["ingrédient 1 avec quantité", "ingrédient 2 avec quantité"],
+  "ingredients": ["ingrédient 1 avec quantité", "ingrédient 2"],
   "steps": ["étape 1", "étape 2"],
   "tags": ["tag1", "tag2"],
-  "source": "source si disponible",
-  "preparationTime": "temps de préparation",
-  "cookingTime": "temps de cuisson"
+  "source": "",
+  "preparationTime": "",
+  "cookingTime": ""
 }
 
-Exemples de catégorisation:
-- "Salade de chèvre chaud" → "entrée"
-- "Velouté de butternut" → "entrée"
-- "Terrine de saumon" → "entrée"
-- "Soupe à l'oignon" → "entrée"
-- "Poulet rôti" → "plat"
-- "Quiche lorraine" → "plat"
-- "Gratin dauphinois" → "plat"
-- "Tarte au citron" → "dessert"
-- "Mousse au chocolat" → "dessert"
-- "Smoothie fraise" → "boisson"
+EXEMPLES CONCRETS POUR T'AIDER:
+"Velouté de butternut" → category: "entrée" (c'est une soupe)
+"Soupe à l'oignon gratinée" → category: "entrée" (c'est une soupe)
+"Salade de chèvre chaud" → category: "entrée" (salade d'entrée)
+"Terrine de saumon" → category: "entrée" (terrine)
+"Gaspacho andalou" → category: "entrée" (soupe froide)
+"Carpaccio de bœuf" → category: "entrée" (plat froid d'entrée)
+"Poulet rôti et pommes de terre" → category: "plat" (viande + garniture)
+"Quiche lorraine" → category: "plat" (plat principal)
+"Tarte au citron meringuée" → category: "dessert" (tarte sucrée)
+"Smoothie mangue passion" → category: "boisson" (boisson)
 
-Texte OCR à analyser:
-"""${normalizedText}"""
-`;
+TEXTE OCR À ANALYSER:
+"""
+${normalizedText}
+"""
+
+IMPORTANT: Retourne UNIQUEMENT le JSON, rien d'autre.`;
 
       const result = await withRetry(
         async () => {
@@ -553,7 +667,7 @@ Texte OCR à analyser:
             model: "gemini-2.0-flash",
             generationConfig: {
               responseMimeType: "application/json",
-              temperature: 0.1, // Réduit pour plus de cohérence
+              temperature: 0.0,
             },
             contents: [{ role: "user", parts: [{ text: prompt }] }],
           });
@@ -578,10 +692,14 @@ Texte OCR à analyser:
       if (!recipe.estimatedTime) {
         recipe.estimatedTime = calculateTotalTime(
           recipe.preparationTime,
-          recipe.cookingTime
+          recipe.cookingTime,
         );
       }
 
+      logger.info("✅ AI OUTPUT:", {
+        title: recipe.title,
+        category: recipe.category,
+      });
       return res.status(200).json(recipe);
     } catch (err) {
       logger.error(err);

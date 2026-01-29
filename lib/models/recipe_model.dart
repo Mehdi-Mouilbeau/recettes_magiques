@@ -21,8 +21,27 @@ enum RecipeCategory {
   }
 
   static RecipeCategory fromString(String value) {
+    // Normaliser les accents
+    String normalize(String s) {
+      return s
+          .toLowerCase()
+          .trim()
+          .replaceAll('é', 'e')
+          .replaceAll('è', 'e')
+          .replaceAll('ê', 'e')
+          .replaceAll('à', 'a')
+          .replaceAll('â', 'a')
+          .replaceAll('ô', 'o')
+          .replaceAll('î', 'i')
+          .replaceAll('û', 'u')
+          .replaceAll('ù', 'u')
+          .replaceAll('ç', 'c');
+    }
+    
+    final normalized = normalize(value);
+    
     return RecipeCategory.values.firstWhere(
-      (e) => e.name.toLowerCase() == value.toLowerCase(),
+      (e) => normalize(e.name) == normalized,
       orElse: () => RecipeCategory.plat,
     );
   }
@@ -188,14 +207,37 @@ class Recipe {
 
   static RecipeCategory _parseCategory(dynamic value) {
     if (value == null) return RecipeCategory.plat;
-    final v = value.toString().toLowerCase().trim();
-    // Gérer noms localisés
-    if (v == 'entrée' || v == 'entree') return RecipeCategory.entree;
-    if (v == 'plat' || v == 'plats') return RecipeCategory.plat;
-    if (v == 'dessert' || v == 'desserts') return RecipeCategory.dessert;
-    if (v == 'boisson' || v == 'boissons' || v == 'drink') return RecipeCategory.boisson;
-    // Fallback sur enum names
-    return RecipeCategory.fromString(v);
+    
+    // Normaliser : supprimer les accents et mettre en minuscules
+    String normalize(String s) {
+      return s
+          .toLowerCase()
+          .trim()
+          .replaceAll('é', 'e')
+          .replaceAll('è', 'e')
+          .replaceAll('ê', 'e')
+          .replaceAll('à', 'a')
+          .replaceAll('â', 'a')
+          .replaceAll('ô', 'o')
+          .replaceAll('î', 'i')
+          .replaceAll('û', 'u')
+          .replaceAll('ù', 'u')
+          .replaceAll('ç', 'c');
+    }
+    
+    final normalized = normalize(value.toString());
+    
+    // Gérer noms localisés avec normalisation
+    if (normalized == 'entree') return RecipeCategory.entree;
+    if (normalized == 'plat' || normalized == 'plats') return RecipeCategory.plat;
+    if (normalized == 'dessert' || normalized == 'desserts') return RecipeCategory.dessert;
+    if (normalized == 'boisson' || normalized == 'boissons' || normalized == 'drink') return RecipeCategory.boisson;
+    
+    // Fallback sur enum names (avec normalisation)
+    return RecipeCategory.values.firstWhere(
+      (e) => normalize(e.name) == normalized,
+      orElse: () => RecipeCategory.plat,
+    );
   }
 
   /// Essaie d'extraire un entier pour les portions

@@ -116,6 +116,9 @@ class ScanController extends ChangeNotifier {
         throw Exception('Erreur lors du traitement par l\'IA');
       }
 
+      // 🔍 LOG DEBUG - Catégorie reçue de l'IA
+      debugPrint('🔍 Category reçue de l\'IA: "${aiResponse['category']}"');
+
       _processingStep = 'Sauvegarde de la recette...';
       notifyListeners();
 
@@ -127,14 +130,16 @@ class ScanController extends ChangeNotifier {
         steps: List<String>.from(aiResponse['steps'] as List),
         tags: List<String>.from(aiResponse['tags'] as List),
         source: aiResponse['source'] as String,
-        preparationTime: aiResponse['preparationTime'] as String?, 
-        cookingTime: aiResponse['cookingTime'] as String?, 
-        estimatedTime: aiResponse['estimatedTime'] as String? ??
-            '', // ⬅️ MODIFIER (rendre nullable)
+        preparationTime: aiResponse['preparationTime'] as String?,
+        cookingTime: aiResponse['cookingTime'] as String?,
+        estimatedTime: aiResponse['estimatedTime'] as String? ?? '',
         servings: _extractServings(aiResponse),
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
       );
+
+      // 🔍 LOG DEBUG - Catégorie après parsing
+      debugPrint('🔍 Category après parsing: "${recipe.category.name}" (${recipe.category.displayName})');
 
       _isProcessing = false;
       notifyListeners();

@@ -11,7 +11,6 @@ import 'package:recette_magique/theme.dart';
 
 import 'package:recette_magique/ui/widgets/round_icon_button.dart';
 import 'package:recette_magique/ui/widgets/heart_button.dart';
-import 'package:recette_magique/ui/widgets/info_chip.dart';
 import 'package:recette_magique/ui/widgets/recipe/category_pill.dart';
 import 'package:recette_magique/ui/widgets/recipe/small_pill.dart';
 import 'package:recette_magique/ui/widgets/recipe/circle_control_button.dart';
@@ -22,8 +21,7 @@ class RecipeDetailScreen extends StatelessWidget {
 
   const RecipeDetailScreen({super.key, required this.recipe});
 
-  static const double _headerHeight = 360;
-  static const double _overlap = 34;
+  static const double _expandedHeight = 360;
 
   Future<void> _deleteRecipe(BuildContext context) async {
     final confirmed = await showDialog<bool>(
@@ -94,6 +92,37 @@ class RecipeDetailScreen extends StatelessWidget {
     );
   }
 
+  Widget _InfoItem({
+    required BuildContext context,
+    required String icon,
+    required String text,
+  }) {
+    return SizedBox(
+      width: 80,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Image.asset(
+            icon,
+            width: 20,
+            height: 20,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            text,
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  fontWeight: FontWeight.w900,
+                  color: AppColors.text,
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final imageUrl = recipe.imageUrl ?? recipe.scannedImageUrl;
@@ -101,125 +130,126 @@ class RecipeDetailScreen extends StatelessWidget {
     return ChangeNotifierProvider(
       create: (_) => RecipeDetailController(recipe: recipe),
       child: Scaffold(
-        backgroundColor: Colors.transparent,
+        backgroundColor: AppColors.card,
         body: Consumer<RecipeDetailController>(
           builder: (context, controller, _) {
             return CustomScrollView(
               slivers: [
-                // ================= HEADER IMAGE =================
-                SliverToBoxAdapter(
-                  child: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      SizedBox(
-                        height: _headerHeight,
-                        width: double.infinity,
-                        child: imageUrl != null
-                            ? CachedNetworkImage(
-                                imageUrl: imageUrl,
-                                fit: BoxFit.cover,
-                                placeholder: (_, __) =>
-                                    Container(color: Colors.black12),
-                                errorWidget: (_, __, ___) => const Icon(
-                                  Icons.restaurant_menu,
-                                  size: 80,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : Container(
-                                color: Colors.black12,
-                                alignment: Alignment.center,
-                                child: Text(
-                                  recipe.category.displayName,
-                                  style: const TextStyle(
-                                    fontSize: 26,
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ),
+                SliverAppBar(
+                  backgroundColor: Colors.transparent,
+                  surfaceTintColor: Colors.transparent,
+                  expandedHeight: _expandedHeight,
+                  pinned: true,
+                  stretch: true,
+                  leading: Padding(
+                    padding: const EdgeInsets.only(left: AppSpacing.lg),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: RoundIconButton(
+                        icon: Icons.arrow_back,
+                        onTap: () => context.pop(),
                       ),
-
-                      // Gradient overlay
-                      Positioned.fill(
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [
-                                Colors.black.withValues(alpha: 0.15),
-                                Colors.transparent,
-                                Colors.black.withValues(alpha: 0.25),
-                              ],
+                    ),
+                  ),
+                  actions: [
+                    RoundIconButton(
+                      icon: Icons.refresh,
+                      onTap: () => _regenerateImage(context),
+                    ),
+                    const SizedBox(width: 10),
+                    Padding(
+                      padding: const EdgeInsets.only(right: AppSpacing.lg),
+                      child: HeartButton(
+                        isFavorite: recipe.isFavorite,
+                        onTap: () => context
+                            .read<RecipeProvider>()
+                            .toggleFavorite(recipe),
+                        backgroundColor: AppColors.roundButton,
+                        iconColor: Colors.white,
+                      ),
+                    ),
+                  ],
+                  flexibleSpace: FlexibleSpaceBar(
+                    stretchModes: const [
+                      StretchMode.zoomBackground,
+                      StretchMode.fadeTitle,
+                    ],
+                    background: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        if (imageUrl != null)
+                          CachedNetworkImage(
+                            imageUrl: imageUrl,
+                            fit: BoxFit.cover,
+                            placeholder: (_, __) =>
+                                Container(color: Colors.black12),
+                            errorWidget: (_, __, ___) => const Icon(
+                              Icons.restaurant_menu,
+                              size: 80,
+                              color: Colors.white,
+                            ),
+                          )
+                        else
+                          Container(
+                            color: Colors.black12,
+                            alignment: Alignment.center,
+                            child: Text(
+                              recipe.category.displayName,
+                              style: const TextStyle(
+                                fontSize: 26,
+                                color: Colors.white,
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
                           ),
-                        ),
-                      ),
-
-                      // Top actions
-                      SafeArea(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: AppSpacing.lg,
-                            vertical: AppSpacing.md,
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              RoundIconButton(
-                                icon: Icons.arrow_back,
-                                onTap: () => context.pop(),
-                              ),
-                              Row(
-                                children: [
-                                  RoundIconButton(
-                                    icon: Icons.refresh,
-                                    onTap: () => _regenerateImage(context),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  HeartButton(
-                                    isFavorite: recipe.isFavorite,
-                                    onTap: () => context
-                                        .read<RecipeProvider>()
-                                        .toggleFavorite(recipe),
-                                    backgroundColor: AppColors.roundButton,
-                                    iconColor: Colors.white,
-                                  ),
+                        // gradient scrim
+                        Positioned.fill(
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  Colors.black.withValues(alpha: 0.25),
+                                  Colors.transparent,
+                                  Colors.black.withValues(alpha: 0.35),
                                 ],
                               ),
-                            ],
-                          ),
-                        ),
-                      ),
-
-                      // Rounded top card
-                      Positioned(
-                        left: 0,
-                        right: 0,
-                        top: _headerHeight - _overlap,
-                        child: Container(
-                          height: 60,
-                          decoration: const BoxDecoration(
-                            color: AppColors.card,
-                            borderRadius: BorderRadius.only(
-                              topLeft: Radius.circular(AppRadius.sheet),
-                              topRight: Radius.circular(AppRadius.sheet),
                             ),
                           ),
                         ),
-                      ),
-                    ],
+                        // arrondi visuel en bas (Material-ish)
+                        Align(
+                          alignment: Alignment.bottomCenter,
+                          child: Container(
+                            height: 28,
+                            decoration: const BoxDecoration(
+                              color: AppColors.card,
+                              borderRadius: BorderRadius.only(
+                                topLeft: Radius.circular(AppRadius.sheet),
+                                topRight: Radius.circular(AppRadius.sheet),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
 
-                // ================= CONTENT =================
+                // ==== SHEET CONTENT ====
                 SliverToBoxAdapter(
                   child: Container(
-                    color: AppColors.card,
-                    padding: EdgeInsets.fromLTRB(
+                    decoration: const BoxDecoration(
+                      color: AppColors.card,
+                      borderRadius: BorderRadius.only(
+                        topLeft: Radius.circular(AppRadius.sheet),
+                        topRight: Radius.circular(AppRadius.sheet),
+                      ),
+                    ),
+                    padding: const EdgeInsets.fromLTRB(
                       AppSpacing.lg,
-                      AppSpacing.lg + _overlap,
+                      AppSpacing.md,
                       AppSpacing.lg,
                       AppSpacing.xl,
                     ),
@@ -250,88 +280,47 @@ class RecipeDetailScreen extends StatelessWidget {
 
                         const SizedBox(height: AppSpacing.md),
 
-                        Builder(
-                          builder: (context) {
-                            final chips = <Widget>[
-                              InfoChip(
-                                background: AppColors.chipIngredients,
-                                icon: Image.asset(
-                                  'assets/icons/iconcards/icon_ingredients.png',
+                        // Container infos
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: AppColors.overlay,
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Center(
+                            child: Wrap(
+                              alignment: WrapAlignment.center,
+                              runAlignment: WrapAlignment.center,
+                              spacing: 24, // espace horizontal
+                              runSpacing:
+                                  16, // espace vertical (quand ça passe en dessous)
+                              children: [
+                                _InfoItem(
+                                  context: context,
+                                  icon:
+                                      'assets/icons/iconcards/icon_ingredients.png',
+                                  text:
+                                      '${recipe.ingredients.length} ingrédients',
                                 ),
-                                label:
-                                    '${recipe.ingredients.length} ingrédients',
-                              ),
-                              if (recipe.preparationTime != null &&
-                                  recipe.preparationTime!.isNotEmpty)
-                                InfoChip(
-                                  background: AppColors.chipTime,
-                                  icon: Image.asset(
-                                    'assets/icons/iconcards/icon_preparation.png',
+                                if (recipe.preparationTime != null &&
+                                    recipe.preparationTime!.isNotEmpty)
+                                  _InfoItem(
+                                    context: context,
+                                    icon:
+                                        'assets/icons/iconcards/icon_preparation.png',
+                                    text: 'Prépa: ${recipe.preparationTime}',
                                   ),
-                                  label: 'Prépa: ${recipe.preparationTime}',
-                                ),
-                              if (recipe.cookingTime != null &&
-                                  recipe.cookingTime!.isNotEmpty)
-                                InfoChip(
-                                  background:
-                                      AppColors.chipTime.withOpacity(0.8),
-                                  icon: Image.asset(
-                                    'assets/icons/iconcards/icon_plat.png',
+                                if (recipe.cookingTime != null &&
+                                    recipe.cookingTime!.isNotEmpty)
+                                  _InfoItem(
+                                    context: context,
+                                    icon:
+                                        'assets/icons/iconcards/icon_plat.png',
+                                    text: 'Cuisson: ${recipe.cookingTime}',
                                   ),
-                                  label: 'Cuisson: ${recipe.cookingTime}',
-                                ),
-                              // Fallback sur estimatedTime si les temps ne sont pas séparés
-                              if ((recipe.preparationTime == null ||
-                                      recipe.preparationTime!.isEmpty) &&
-                                  (recipe.cookingTime == null ||
-                                      recipe.cookingTime!.isEmpty) &&
-                                  recipe.estimatedTime.isNotEmpty)
-                                InfoChip(
-                                  background: AppColors.chipTime,
-                                  icon: Icons.schedule,
-                                  label: recipe.estimatedTime,
-                                ),
-                            ];
-
-                            if (chips.length == 2) {
-                              // 2 éléments côte à côte
-                              return Row(
-                                children: [
-                                  Expanded(child: chips[0]),
-                                  const SizedBox(width: 12),
-                                  Expanded(child: chips[1]),
-                                ],
-                              );
-                            } else if (chips.length == 3) {
-                              // 2 en haut, 1 centré en bas
-                              return Column(
-                                children: [
-                                  Row(
-                                    children: [
-                                      Expanded(child: chips[0]),
-                                      const SizedBox(width: 12),
-                                      Expanded(child: chips[1]),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 12),
-                                  Center(
-                                    child: SizedBox(
-                                      width: MediaQuery.of(context).size.width *
-                                          0.5,
-                                      child: chips[2],
-                                    ),
-                                  ),
-                                ],
-                              );
-                            } else {
-                              // Fallback pour 1 élément ou plus de 3
-                              return Wrap(
-                                spacing: 12,
-                                runSpacing: 12,
-                                children: chips,
-                              );
-                            }
-                          },
+                              ],
+                            ),
+                          ),
                         ),
 
                         const SizedBox(height: AppSpacing.lg),
@@ -404,6 +393,15 @@ class RecipeDetailScreen extends StatelessWidget {
                           child: SizedBox(
                             height: 50,
                             child: ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.accent,
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 24),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius:
+                                      BorderRadius.circular(AppRadius.md),
+                                ),
+                              ),
                               onPressed: () {
                                 context
                                     .read<ShoppingProvider>()
@@ -419,7 +417,9 @@ class RecipeDetailScreen extends StatelessWidget {
                               },
                               child: const Text(
                                 'Ajouter à la liste de courses',
-                                style: TextStyle(fontWeight: FontWeight.w900),
+                                style: TextStyle(
+                                    fontWeight: FontWeight.w900,
+                                    color: Colors.white),
                               ),
                             ),
                           ),
@@ -479,26 +479,40 @@ class RecipeDetailScreen extends StatelessWidget {
 
                         const SizedBox(height: AppSpacing.xl),
 
-                        // Delete button
-                        OutlinedButton.icon(
-                          onPressed: () => _deleteRecipe(context),
-                          icon: const Icon(Icons.delete_outline),
-                          label: const Text('Supprimer cette recette'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor:
-                                Theme.of(context).colorScheme.error,
-                            side: BorderSide(
-                                color: Theme.of(context).colorScheme.error),
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(AppRadius.md),
+                        SizedBox(
+                          height:
+                              50, 
+                          width: double
+                              .infinity,
+                          child: ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor:
+                                  AppColors.accent,
+                              elevation: 0, 
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 24),
+                              shape: RoundedRectangleBorder(
+                                borderRadius:
+                                    BorderRadius.circular(AppRadius.md),
+                              ),
+                            ),
+                            onPressed: () => _deleteRecipe(context),
+                            icon: const Icon(
+                              Icons.delete_outline,
+                              color: Colors.white,
+                            ),
+                            label: const Text(
+                              'Supprimer cette recette',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w900,
+                                color: Colors.white,
+                              ),
                             ),
                           ),
                         ),
 
                         const SizedBox(height: 80),
 
-                        // ============ NOTE ============
                         Text(
                           'Note',
                           style:
@@ -530,6 +544,15 @@ class RecipeDetailScreen extends StatelessWidget {
                               Align(
                                 alignment: Alignment.centerRight,
                                 child: ElevatedButton.icon(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppColors.accent,
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 20, vertical: 12),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius:
+                                          BorderRadius.circular(AppRadius.md),
+                                    ),
+                                  ),
                                   onPressed: () async {
                                     if (recipe.id == null) return;
                                     final ok = await context
@@ -549,11 +572,11 @@ class RecipeDetailScreen extends StatelessWidget {
                                       ),
                                     );
                                   },
-                                  icon: const Icon(Icons.save),
+                                  icon: const Icon(Icons.save, color: Colors.white),
                                   label: const Text(
                                     'Enregistrer',
                                     style:
-                                        TextStyle(fontWeight: FontWeight.w900),
+                                        TextStyle(fontWeight: FontWeight.w900, color: Colors.white),
                                   ),
                                 ),
                               ),
@@ -561,7 +584,11 @@ class RecipeDetailScreen extends StatelessWidget {
                           ),
                         ),
 
-                        const SizedBox(height: AppSpacing.lg),
+                        SizedBox(
+                          height: AppSpacing.lg +
+                              MediaQuery.of(context).padding.bottom +
+                              50,
+                        ),
                       ],
                     ),
                   ),

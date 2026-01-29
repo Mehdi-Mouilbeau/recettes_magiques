@@ -231,6 +231,50 @@ class _RootShell extends StatelessWidget {
     }
   }
 
+  /// Chip icône + texte avec fond quand sélectionné
+  Widget _navItem({
+  required BuildContext context,
+  required String asset,
+  required String label,
+  required bool selected,
+}) {
+  final bg = selected
+      ? AppColors.primaryHeader
+      : Colors.transparent;
+
+  final fg = Colors.black;
+      
+
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+    decoration: BoxDecoration(
+      color: bg,
+      borderRadius: BorderRadius.circular(16),
+    ),
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Image.asset(
+          asset,
+          width: 22,
+          height: 22,
+          // si icônes monochromes :
+          // color: fg,
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                fontWeight: FontWeight.w900,
+                color: fg,
+              ),
+        ),
+      ],
+    ),
+  );
+}
+
+
   @override
   Widget build(BuildContext context) {
     final loc = GoRouterState.of(context).matchedLocation;
@@ -261,42 +305,50 @@ class _RootShell extends StatelessWidget {
                     surfaceTintColor: Colors.transparent,
                     shadowColor: Colors.transparent,
                     elevation: 0,
+
                     selectedIndex: current,
                     onDestinationSelected: (i) => _onTap(context, i),
+
+                    // IMPORTANT : on coupe l'indicator qui ne couvre que l'icône
+                    indicatorColor: Colors.transparent,
+
+                    // On affiche nous-mêmes le label dans le chip
+                    labelBehavior: NavigationDestinationLabelBehavior.alwaysHide,
+
                     destinations: [
                       NavigationDestination(
-                        icon: Image.asset(
-                          'assets/icons/navicons/icon_toque.png',
-                        ),
-                        selectedIcon: Image.asset(
-                          'assets/icons/navicons/icon_toque.png',
+                        icon: _navItem(
+                          context: context,
+                          asset: 'assets/icons/navicons/icon_toque.png',
+                          label: 'Recettes',
+                          selected: current == 0,
                         ),
                         label: 'Recettes',
                       ),
                       NavigationDestination(
-                        icon: Image.asset(
-                          'assets/icons/navicons/icon_scan.png',
-                        ),
-                        selectedIcon: Image.asset(
-                          'assets/icons/navicons/icon_scan.png',
+                        icon: _navItem(
+                          context: context,
+                          asset: 'assets/icons/navicons/icon_scan.png',
+                          label: 'Scan',
+                          selected: current == 1,
                         ),
                         label: 'Scan',
                       ),
                       NavigationDestination(
-                        icon: Image.asset(
-                          'assets/icons/navicons/icon_courses.png',
-                        ),
-                        selectedIcon: Image.asset(
-                          'assets/icons/navicons/icon_courses.png',
+                        icon: _navItem(
+                          context: context,
+                          asset: 'assets/icons/navicons/icon_courses.png',
+                          label: 'Courses',
+                          selected: current == 2,
                         ),
                         label: 'Courses',
                       ),
                       NavigationDestination(
-                        icon: Image.asset(
-                          'assets/icons/navicons/icon_agenda.png',
-                        ),
-                        selectedIcon: Image.asset(
-                          'assets/icons/navicons/icon_agenda.png',
+                        icon: _navItem(
+                          context: context,
+                          asset: 'assets/icons/navicons/icon_agenda.png',
+                          label: 'Agenda',
+                          selected: current == 3,
                         ),
                         label: 'Agenda',
                       ),

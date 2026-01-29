@@ -24,31 +24,33 @@ class AIService {
   ///   "estimatedTime": ""
   /// }
   Future<Map<String, dynamic>?> processRecipeText(String ocrText) async {
-    try {
-      debugPrint('📤 Envoi du texte à l\'IA (${ocrText.length} caractères)');
+  try {
+    debugPrint('📤 Envoi du texte à l\'IA (${ocrText.length} caractères)');
+    debugPrint('📝 TEXTE OCR COMPLET:\n$ocrText'); // ⬅️ AJOUTER CETTE LIGNE
 
-      final response = await http
-          .post(
-            Uri.parse(_cloudFunctionUrl),
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({'text': ocrText}),
-          )
-          .timeout(const Duration(seconds: 20));
+    final response = await http
+        .post(
+          Uri.parse(_cloudFunctionUrl),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({'text': ocrText}),
+        )
+        .timeout(const Duration(seconds: 20));
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body) as Map<String, dynamic>;
-        debugPrint('✅ Recette reçue : ${data['title']}');
-        return data;
-      } else {
-        debugPrint(
-          '❌ Erreur Cloud Function '
-          '${response.statusCode} : ${response.body}',
-        );
-        return null;
-      }
-    } catch (e) {
-      debugPrint('🔥 Erreur traitement IA : $e');
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      debugPrint('✅ Recette reçue : ${data['title']}');
+      debugPrint('📂 RÉPONSE IA COMPLÈTE: ${jsonEncode(data)}'); // ⬅️ AJOUTER CETTE LIGNE
+      return data;
+    } else {
+      debugPrint(
+        '❌ Erreur Cloud Function '
+        '${response.statusCode} : ${response.body}',
+      );
       return null;
     }
+  } catch (e) {
+    debugPrint('🔥 Erreur traitement IA : $e');
+    return null;
   }
+}
 }

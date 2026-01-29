@@ -17,18 +17,6 @@ class AppSpacing {
   static const EdgeInsets paddingMd = EdgeInsets.all(md);
   static const EdgeInsets paddingLg = EdgeInsets.all(lg);
   static const EdgeInsets paddingXl = EdgeInsets.all(xl);
-
-  static const EdgeInsets horizontalXs = EdgeInsets.symmetric(horizontal: xs);
-  static const EdgeInsets horizontalSm = EdgeInsets.symmetric(horizontal: sm);
-  static const EdgeInsets horizontalMd = EdgeInsets.symmetric(horizontal: md);
-  static const EdgeInsets horizontalLg = EdgeInsets.symmetric(horizontal: lg);
-  static const EdgeInsets horizontalXl = EdgeInsets.symmetric(horizontal: xl);
-
-  static const EdgeInsets verticalXs = EdgeInsets.symmetric(vertical: xs);
-  static const EdgeInsets verticalSm = EdgeInsets.symmetric(vertical: sm);
-  static const EdgeInsets verticalMd = EdgeInsets.symmetric(vertical: md);
-  static const EdgeInsets verticalLg = EdgeInsets.symmetric(vertical: lg);
-  static const EdgeInsets verticalXl = EdgeInsets.symmetric(vertical: xl);
 }
 
 class AppRadius {
