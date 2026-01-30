@@ -265,6 +265,13 @@ function calculateTotalTime(prepTime, cookTime) {
 }
 
 function sanitizeRecipeJson(obj) {
+  const toInt = (v) => {
+    if (v == null) return 0;
+    if (typeof v === "number" && Number.isFinite(v)) return Math.round(v);
+    const m = String(v).match(/(\d+)/);
+    return m ? parseInt(m[1], 10) : 0;
+  };
+
   const out = {
     title: String(obj?.title || "")
       .trim()
@@ -272,6 +279,7 @@ function sanitizeRecipeJson(obj) {
     category: String(obj?.category || "")
       .trim()
       .toLowerCase(),
+    servings: toInt(obj?.servings), 
     ingredients: Array.isArray(obj?.ingredients)
       ? obj.ingredients.map((x) => String(x).trim()).filter(Boolean)
       : [],
@@ -294,6 +302,10 @@ function sanitizeRecipeJson(obj) {
       .trim()
       .slice(0, 60),
   };
+
+  // clamp raisonnable
+  if (out.servings < 0) out.servings = 0;
+  if (out.servings > 50) out.servings = 50;
 
   const allowed = new Set(["entrée", "plat", "dessert", "boisson"]);
   if (!allowed.has(out.category)) out.category = "plat";
@@ -634,6 +646,7 @@ FORMAT JSON (retourne UNIQUEMENT ce JSON, sans texte avant/après, sans markdown
 {
   "title": "Nom exact de la recette",
   "category": "entrée | plat | dessert | boisson",
+  "servings": 0,
   "ingredients": ["ingrédient 1 avec quantité", "ingrédient 2"],
   "steps": ["étape 1", "étape 2"],
   "tags": ["tag1", "tag2"],
@@ -641,6 +654,10 @@ FORMAT JSON (retourne UNIQUEMENT ce JSON, sans texte avant/après, sans markdown
   "preparationTime": "",
   "cookingTime": ""
 }
+
+RÈGLES POUR servings:
+- Si le texte mentionne "pour X personnes / X pers / X portions / X couverts" => servings = X (nombre entier)
+- Si absent => servings = 0
 
 EXEMPLES CONCRETS POUR T'AIDER:
 "Velouté de butternut" → category: "entrée" (c'est une soupe)

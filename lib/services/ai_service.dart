@@ -39,17 +39,17 @@ class AIService {
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body) as Map<String, dynamic>;
       debugPrint('✅ Recette reçue : ${data['title']}');
-      debugPrint('📂 RÉPONSE IA COMPLÈTE: ${jsonEncode(data)}'); // ⬅️ AJOUTER CETTE LIGNE
+      debugPrint('📂 RÉPONSE IA COMPLÈTE: ${jsonEncode(data)}'); 
       return data;
     } else {
       debugPrint(
-        '❌ Erreur Cloud Function '
+        ' Erreur Cloud Function '
         '${response.statusCode} : ${response.body}',
       );
       return null;
     }
   } catch (e) {
-    debugPrint('🔥 Erreur traitement IA : $e');
+    debugPrint(' Erreur traitement IA : $e');
     return null;
   }
 }
