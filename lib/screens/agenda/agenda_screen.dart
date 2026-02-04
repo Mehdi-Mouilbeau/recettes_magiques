@@ -38,8 +38,8 @@ class _AgendaScreenState extends State<AgendaScreen> {
         recipes: all,
         weekDays: c.weekDays,
         initialDay: day,
-        onSet: (d, type, recipe, persons) =>
-            c.setMeal(context, day: d, type: type, recipe: recipe, persons: persons),
+        onSet: (d, type, recipe, persons) => c.setMeal(context,
+            day: d, type: type, recipe: recipe, persons: persons),
       ),
     );
   }
@@ -112,6 +112,14 @@ class _HeaderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final buttonStyle = FilledButton.styleFrom(
+      backgroundColor: AppColors.primaryHeader,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+    );
+
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
       decoration: BoxDecoration(
@@ -133,59 +141,80 @@ class _HeaderCard extends StatelessWidget {
         ],
         border: Border.all(color: AppColors.border),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.55),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: const Icon(Icons.calendar_month, color: AppColors.text),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w900,
-                        color: AppColors.text,
-                      ),
+          // Titre
+          Text(
+            title,
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w900,
+                  color: AppColors.text,
                 ),
-                const SizedBox(height: 2),
-                Text(
+          ),
+          const SizedBox(height: 4),
+
+          // ✅ Subtitle + flèches sur la même ligne (flèches au-dessus, à côté de la semaine)
+          Row(
+            children: [
+              Expanded(
+                child: Text(
                   subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: AppColors.text.withValues(alpha: 0.8),
+                        fontWeight: FontWeight.w700,
                       ),
                 ),
-                const SizedBox(height: 10),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton.icon(
-                    onPressed: onExport,
-                    icon: const Icon(Icons.shopping_cart_outlined),
-                    label: const Text('Exporter la liste de courses'),
+              ),
+              const SizedBox(width: 6),
+              IconButton(
+                onPressed: onPrev,
+                icon: const Icon(Icons.chevron_left),
+                visualDensity: VisualDensity.compact,
+                tooltip: 'Semaine précédente',
+              ),
+              IconButton(
+                onPressed: onNext,
+                icon: const Icon(Icons.chevron_right),
+                visualDensity: VisualDensity.compact,
+                tooltip: 'Semaine suivante',
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 12),
+
+          Row(
+            children: [
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed: onExport,
+                  icon: const Icon(Icons.shopping_cart_outlined,
+                      color: Colors.black, size: 20),
+                  label: const Text(
+                    'liste de course',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: Colors.black),
+                  ),
+                  style: buttonStyle,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: FilledButton(
+                  onPressed: onToday,
+                  style: buttonStyle,
+                  child: const Text(
+                    'Cette semaine',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: Colors.black),
                   ),
                 ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          Column(
-            children: [
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(onPressed: onPrev, icon: const Icon(Icons.chevron_left)),
-                  IconButton(onPressed: onNext, icon: const Icon(Icons.chevron_right)),
-                ],
               ),
-              TextButton(onPressed: onToday, child: const Text('Cette semaine')),
             ],
           ),
         ],
@@ -324,20 +353,22 @@ class _SlotTile extends StatelessWidget {
                       children: [
                         Text(
                           '$title • ${meal!.persons} pers.',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: const Color(0xFF475569),
-                                fontWeight: FontWeight.w700,
-                              ),
+                          style:
+                              Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: const Color(0xFF475569),
+                                    fontWeight: FontWeight.w700,
+                                  ),
                         ),
                         const SizedBox(height: 2),
                         Text(
                           meal!.recipe.title,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                color: const Color(0xFF0F172A),
-                                fontWeight: FontWeight.w900,
-                              ),
+                          style:
+                              Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                    color: const Color(0xFF0F172A),
+                                    fontWeight: FontWeight.w900,
+                                  ),
                         ),
                       ],
                     )
@@ -369,7 +400,8 @@ class _PlannerPickerSheet extends StatefulWidget {
   final List<DateTime> weekDays;
   final DateTime initialDay;
 
-  final Future<void> Function(DateTime day, MealType type, Recipe recipe, int persons) onSet;
+  final Future<void> Function(
+      DateTime day, MealType type, Recipe recipe, int persons) onSet;
 
   const _PlannerPickerSheet({
     required this.recipes,
@@ -395,7 +427,8 @@ class _PlannerPickerSheetState extends State<_PlannerPickerSheet> {
   @override
   void initState() {
     super.initState();
-    _selectedDay = DateTime(widget.initialDay.year, widget.initialDay.month, widget.initialDay.day);
+    _selectedDay = DateTime(
+        widget.initialDay.year, widget.initialDay.month, widget.initialDay.day);
     _selectedSlot = MealType.lunch;
   }
 
@@ -415,7 +448,9 @@ class _PlannerPickerSheetState extends State<_PlannerPickerSheet> {
 
   void _advance() {
     final idx = widget.weekDays.indexWhere((x) =>
-        x.year == _selectedDay.year && x.month == _selectedDay.month && x.day == _selectedDay.day);
+        x.year == _selectedDay.year &&
+        x.month == _selectedDay.month &&
+        x.day == _selectedDay.day);
     if (idx == -1) return;
 
     if (_selectedSlot == MealType.lunch) {
@@ -485,8 +520,6 @@ class _PlannerPickerSheetState extends State<_PlannerPickerSheet> {
                     ],
                   ),
                   const SizedBox(height: 12),
-
-
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
@@ -494,28 +527,30 @@ class _PlannerPickerSheetState extends State<_PlannerPickerSheet> {
                       ChoiceChip(
                         label: const Text('Entrée'),
                         selected: _cat == RecipeCategory.entree,
-                        onSelected: (_) => setState(() => _cat = RecipeCategory.entree),
+                        onSelected: (_) =>
+                            setState(() => _cat = RecipeCategory.entree),
                       ),
                       ChoiceChip(
                         label: const Text('Plat'),
                         selected: _cat == RecipeCategory.plat,
-                        onSelected: (_) => setState(() => _cat = RecipeCategory.plat),
+                        onSelected: (_) =>
+                            setState(() => _cat = RecipeCategory.plat),
                       ),
                       ChoiceChip(
                         label: const Text('Dessert'),
                         selected: _cat == RecipeCategory.dessert,
-                        onSelected: (_) => setState(() => _cat = RecipeCategory.dessert),
+                        onSelected: (_) =>
+                            setState(() => _cat = RecipeCategory.dessert),
                       ),
                       ChoiceChip(
                         label: const Text('Boisson'),
                         selected: _cat == RecipeCategory.boisson,
-                        onSelected: (_) => setState(() => _cat = RecipeCategory.boisson),
+                        onSelected: (_) =>
+                            setState(() => _cat = RecipeCategory.boisson),
                       ),
                     ],
                   ),
-
                   const SizedBox(height: 14),
-
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: Row(
@@ -528,16 +563,15 @@ class _PlannerPickerSheetState extends State<_PlannerPickerSheet> {
                               selected: d.year == _selectedDay.year &&
                                   d.month == _selectedDay.month &&
                                   d.day == _selectedDay.day,
-                              onSelected: (_) => setState(() => _selectedDay = d),
+                              onSelected: (_) =>
+                                  setState(() => _selectedDay = d),
                             ),
                           ),
                         ],
                       ],
                     ),
                   ),
-
                   const SizedBox(height: 12),
-
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
@@ -545,23 +579,25 @@ class _PlannerPickerSheetState extends State<_PlannerPickerSheet> {
                       ChoiceChip(
                         label: const Text('Midi'),
                         selected: _selectedSlot == MealType.lunch,
-                        onSelected: (_) => setState(() => _selectedSlot = MealType.lunch),
+                        onSelected: (_) =>
+                            setState(() => _selectedSlot = MealType.lunch),
                       ),
                       ChoiceChip(
                         label: const Text('Soir'),
                         selected: _selectedSlot == MealType.dinner,
-                        onSelected: (_) => setState(() => _selectedSlot = MealType.dinner),
+                        onSelected: (_) =>
+                            setState(() => _selectedSlot = MealType.dinner),
                       ),
                     ],
                   ),
-
                   const SizedBox(height: 10),
-
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 10),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(14),
-                      color: Theme.of(context).colorScheme.surfaceContainerLowest,
+                      color:
+                          Theme.of(context).colorScheme.surfaceContainerLowest,
                       border: Border.all(color: AppColors.border),
                     ),
                     child: Row(
@@ -575,20 +611,23 @@ class _PlannerPickerSheetState extends State<_PlannerPickerSheet> {
                           ),
                         ),
                         IconButton(
-                          onPressed: _persons <= 1 ? null : () => setState(() => _persons -= 1),
+                          onPressed: _persons <= 1
+                              ? null
+                              : () => setState(() => _persons -= 1),
                           icon: const Icon(Icons.remove_circle_outline),
                         ),
-                        Text('$_persons', style: Theme.of(context).textTheme.titleMedium),
+                        Text('$_persons',
+                            style: Theme.of(context).textTheme.titleMedium),
                         IconButton(
-                          onPressed: _persons >= 24 ? null : () => setState(() => _persons += 1),
+                          onPressed: _persons >= 24
+                              ? null
+                              : () => setState(() => _persons += 1),
                           icon: const Icon(Icons.add_circle_outline),
                         ),
                       ],
                     ),
                   ),
-
                   const SizedBox(height: 12),
-
                   Text(
                     'Cible : ${_dayHuman(_selectedDay)} • ${_selectedSlot == MealType.lunch ? 'Midi' : 'Soir'}',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -596,9 +635,7 @@ class _PlannerPickerSheetState extends State<_PlannerPickerSheet> {
                           fontWeight: FontWeight.w800,
                         ),
                   ),
-
                   const SizedBox(height: 10),
-
                   if (mustChooseCategory)
                     Padding(
                       padding: const EdgeInsets.only(top: 16),
@@ -632,7 +669,8 @@ class _PlannerPickerSheetState extends State<_PlannerPickerSheet> {
                           subtitle: Text(r.category.toString().split('.').last),
                           trailing: const Icon(Icons.add),
                           onTap: () async {
-                            await widget.onSet(_selectedDay, _selectedSlot, r, _persons);
+                            await widget.onSet(
+                                _selectedDay, _selectedSlot, r, _persons);
                             if (!context.mounted) return;
 
                             ScaffoldMessenger.of(context).showSnackBar(

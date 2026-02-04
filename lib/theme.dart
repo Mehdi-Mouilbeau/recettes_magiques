@@ -115,6 +115,12 @@ class AppTextStyles {
         color: AppColors.text,
       );
 
+      static TextStyle recipeTitle() => GoogleFonts.playfairDisplay(
+        fontSize: 24,
+        fontWeight: FontWeight.w800,
+        color: AppColors.text,
+      );
+
   static TextStyle secondaryAppTitle() => GoogleFonts.caveat(
         fontSize: 18,
         fontWeight: FontWeight.w600,
@@ -146,10 +152,10 @@ class AppTextStyles {
         color: AppColors.text,
       );
 
-  static TextStyle body() => GoogleFonts.inter(
+  static TextStyle body() => GoogleFonts.dmSans(
         fontSize: 16,
-        fontWeight: FontWeight.w400,
-        color: AppColors.text,
+        fontWeight: FontWeight.w500,
+        color: Colors.black,
       );
 
   static TextStyle muted() => GoogleFonts.inter(
