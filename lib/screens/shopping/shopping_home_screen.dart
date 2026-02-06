@@ -34,121 +34,136 @@ class ShoppingHomeScreen extends StatelessWidget {
     return ChangeNotifierProvider(
       create: (_) => ShoppingHomeController(),
       child: Container(
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           gradient: AppColors.bgGradient,
         ),
         child: Scaffold(
           backgroundColor: Colors.transparent,
-          appBar: AppBar(
-            backgroundColor: Colors.transparent,
-            title: Text(
-              'Courses',
-              style: context.textStyles.titleLarge?.bold,
-            ),
-          actions: [
-            if (hasSelection)
-              Consumer<ShoppingHomeController>(
-                builder: (context, controller, _) {
-                  return IconButton(
-                    tooltip: 'Copier',
-                    onPressed: () => _handleCopy(context, controller, items),
-                    icon: const Icon(Icons.copy, color: Colors.blue),
-                  );
-                },
-              ),
-            if (hasSelection)
-              IconButton(
-                tooltip: 'Vider',
-                onPressed: () => shoppingProvider.clear(),
-                icon: const Icon(Icons.delete_sweep, color: Colors.red),
-              ),
-          ],
-        ),
-        body: hasSelection
-            ? _ShoppingListContent(
-                shoppingProvider: shoppingProvider,
-                items: items,
-              )
-            : _EmptyShoppingState(),
-        ),
-      ),
-    );
-  }
-}
-
-class _ShoppingListContent extends StatelessWidget {
-  final ShoppingProvider shoppingProvider;
-  final List<AggregatedIngredient> items;
-
-  const _ShoppingListContent({
-    required this.shoppingProvider,
-    required this.items,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Padding(
-          padding: AppSpacing.paddingMd,
-          child: Row(
-            children: [
-              Icon(
-                Icons.list_alt,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Text(
-                '${shoppingProvider.selectedRecipes.length} recette${shoppingProvider.selectedRecipes.length > 1 ? 's' : ''}',
-                style: context.textStyles.bodyLarge,
-              ),
-              const Spacer(),
-              Text(
-                '${items.length} articles',
-                style: context.textStyles.labelLarge?.withColor(
-                  Theme.of(context).colorScheme.onSurfaceVariant,
+          body: CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(
+                child: Container(
+                  width: double.infinity,
+                  padding: EdgeInsets.only(
+                    top: MediaQuery.of(context).padding.top + 24,
+                    bottom: 24,
+                    left: 16,
+                    right: 16,
+                  ),
+                  decoration: const BoxDecoration(
+                    color: AppColors.primaryHeader,
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Ajoutez des recettes à la liste',
+                          style: context.textStyles.headlineSmall?.bold,
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                      if (hasSelection) ...[
+                        Consumer<ShoppingHomeController>(
+                          builder: (context, controller, _) {
+                            return IconButton(
+                              tooltip: 'Copier',
+                              onPressed: () =>
+                                  _handleCopy(context, controller, items),
+                              icon: const Icon(Icons.copy, color: Colors.blue),
+                            );
+                          },
+                        ),
+                        IconButton(
+                          tooltip: 'Vider',
+                          onPressed: () async => await shoppingProvider.clear(),
+                          icon: const Icon(Icons.delete_sweep, color: Colors.red),
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
               ),
+              if (hasSelection) ...[
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: AppSpacing.paddingMd,
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.list_alt,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                        const SizedBox(width: AppSpacing.sm),
+                        Text(
+                          '${shoppingProvider.selectedRecipes.length} recette${shoppingProvider.selectedRecipes.length > 1 ? 's' : ''}',
+                          style: context.textStyles.bodyLarge,
+                        ),
+                        const Spacer(),
+                        Text(
+                          '${items.length} articles',
+                          style: context.textStyles.labelLarge?.withColor(
+                            Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                Consumer<ShoppingHomeController>(
+                  builder: (context, controller, _) {
+                    return SliverPadding(
+                      padding: AppSpacing.paddingMd,
+                      sliver: SliverList(
+                        delegate: SliverChildBuilderDelegate(
+                          (context, index) {
+                            final item = items[index];
+                            final isChecked = controller.isItemChecked(index);
+
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .surfaceContainerLowest,
+                                  borderRadius: BorderRadius.circular(AppRadius.md),
+                                ),
+                                child: CheckboxListTile(
+                                  value: isChecked,
+                                  onChanged: (value) =>
+                                      controller.toggleItem(index, value),
+                                  checkboxShape: const CircleBorder(),
+                                  controlAffinity: ListTileControlAffinity.leading,
+                                  title: Text(
+                                    controller.formatItem(item),
+                                    style: isChecked
+                                        ? context.textStyles.bodyLarge
+                                            ?.withColor(Theme.of(context)
+                                                .colorScheme
+                                                .onSurfaceVariant)
+                                            .copyWith(
+                                                decoration:
+                                                    TextDecoration.lineThrough)
+                                        : context.textStyles.bodyLarge,
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                          childCount: items.length,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ] else
+                SliverFillRemaining(
+                  child: _EmptyShoppingState(),
+                ),
             ],
           ),
         ),
-        Expanded(
-          child: Consumer<ShoppingHomeController>(
-            builder: (context, controller, _) {
-              return ListView.separated(
-                padding: AppSpacing.paddingMd,
-                itemCount: items.length,
-                separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm),
-                itemBuilder: (context, index) {
-                  final item = items[index];
-                  final isChecked = controller.isItemChecked(index);
-                  
-                  return Container(
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.surfaceContainerLowest,
-                      borderRadius: BorderRadius.circular(AppRadius.md),
-                    ),
-                    child: CheckboxListTile(
-                      value: isChecked,
-                      onChanged: (value) => controller.toggleItem(index, value),
-                      checkboxShape: const CircleBorder(),
-                      controlAffinity: ListTileControlAffinity.leading,
-                      title: Text(
-                        controller.formatItem(item),
-                        style: isChecked
-                            ? context.textStyles.bodyLarge
-                                ?.withColor(Theme.of(context).colorScheme.onSurfaceVariant)
-                                .copyWith(decoration: TextDecoration.lineThrough)
-                            : context.textStyles.bodyLarge,
-                      ),
-                    ),
-                  );
-                },
-              );
-            },
-          ),
-        ),
-      ],
+      ),
     );
   }
 }
@@ -165,7 +180,7 @@ class _EmptyShoppingState extends StatelessWidget {
             const Text('🛒', style: TextStyle(fontSize: 72)),
             const SizedBox(height: AppSpacing.lg),
             Text(
-              'Ajoutez des recettes à la liste',
+              'Aucune recette sélectionnée',
               style: context.textStyles.headlineSmall?.bold,
               textAlign: TextAlign.center,
             ),

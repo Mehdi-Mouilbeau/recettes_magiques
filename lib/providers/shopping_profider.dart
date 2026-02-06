@@ -18,43 +18,55 @@ class ShoppingProvider extends ChangeNotifier {
 
   bool contains(String recipeId) => _selected.any((r) => r.id == recipeId);
 
-  void addRecipe(Recipe recipe, int persons) {
+  List<AggregatedIngredient> get aggregatedItems => _service.buildShoppingList(
+        recipes: _selected,
+        personsByRecipe: _personsByRecipe,
+      );
+
+  Future<void> addRecipe(Recipe recipe, int persons) async {
     if (recipe.id == null) return;
     final id = recipe.id!;
+
     final idx = _selected.indexWhere((r) => r.id == id);
     if (idx == -1) {
       _selected.add(recipe);
     } else {
       _selected[idx] = recipe;
     }
+
     _personsByRecipe[id] = persons.clamp(1, 24);
+
+    await persist();
     notifyListeners();
   }
 
-  void removeRecipe(String recipeId) {
+  Future<void> removeRecipe(String recipeId) async {
     _selected.removeWhere((r) => r.id == recipeId);
     _personsByRecipe.remove(recipeId);
+
+    await persist();
     notifyListeners();
   }
 
-  void clear() {
+  Future<void> clear() async {
     _selected.clear();
     _personsByRecipe.clear();
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_storageKey);
+
     notifyListeners();
   }
-
-  List<AggregatedIngredient> get aggregatedItems => _service.buildShoppingList(
-        recipes: _selected,
-        personsByRecipe: _personsByRecipe,
-      );
 
   Future<void> persist() async {
     final prefs = await SharedPreferences.getInstance();
+
     final ids = _selected.map((r) => r.id).whereType<String>().toList();
     final data = {
       'ids': ids,
       'persons': _personsByRecipe,
     };
+
     await prefs.setString(_storageKey, jsonEncode(data));
   }
 
@@ -63,7 +75,13 @@ class ShoppingProvider extends ChangeNotifier {
     final raw = prefs.getString(_storageKey);
     if (raw == null || raw.trim().isEmpty) return;
 
-    final decoded = jsonDecode(raw);
+    dynamic decoded;
+    try {
+      decoded = jsonDecode(raw);
+    } catch (_) {
+      return;
+    }
+
     if (decoded is! Map) return;
 
     final idsRaw = decoded['ids'];
@@ -71,7 +89,7 @@ class ShoppingProvider extends ChangeNotifier {
 
     if (idsRaw is! List) return;
 
-    final byId = {
+    final byId = <String, Recipe>{
       for (final r in allRecipes)
         if (r.id != null) r.id!: r,
     };
@@ -86,11 +104,18 @@ class ShoppingProvider extends ChangeNotifier {
     }
 
     if (personsRaw is Map) {
-      for (final e in personsRaw.entries) {
-        final k = e.key;
-        final v = e.value;
-        if (k is String && v is int) {
-          _personsByRecipe[k] = v.clamp(1, 24);
+      for (final entry in personsRaw.entries) {
+        final k = entry.key;
+        final v = entry.value;
+
+        if (k is! String) continue;
+
+        int? parsed;
+        if (v is int) parsed = v;
+        if (v is double) parsed = v.round();
+
+        if (parsed != null) {
+          _personsByRecipe[k] = parsed.clamp(1, 24);
         }
       }
     }

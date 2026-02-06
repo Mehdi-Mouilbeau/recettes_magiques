@@ -9,7 +9,6 @@ import 'package:recette_magique/providers/auth_provider.dart';
 import 'package:recette_magique/providers/recipe_provider.dart';
 import 'package:recette_magique/providers/ingredients_provider.dart';
 import 'package:recette_magique/providers/shopping_profider.dart';
-import 'package:recette_magique/screens/shopping/shopping_list_screen.dart';
 
 class HomeController {
   HomeController({required this.notify});
@@ -28,36 +27,35 @@ class HomeController {
   bool showFavoritesOnly = false;
 
   void init(BuildContext context) {
-  _authProvider = context.read<AuthProvider>();
-  final recipeProvider = context.read<RecipeProvider>();
+    _authProvider = context.read<AuthProvider>();
+    final recipeProvider = context.read<RecipeProvider>();
 
-  _authStateListener = () async {
-    final user = _authProvider?.currentUser;
+    _authStateListener = () async {
+      final user = _authProvider?.currentUser;
+      if (user != null) {
+        recipeProvider.loadUserRecipes(user.uid);
+
+        final all = recipeProvider.recipes;
+        await context.read<ShoppingProvider>().hydrateFromStorage(all);
+
+        await context.read<IngredientsProvider>().fetchSuggestions(user.uid);
+      }
+    };
+
+    _authProvider!.addListener(_authStateListener!);
+
+    final user = _authProvider!.currentUser;
     if (user != null) {
-       recipeProvider.loadUserRecipes(user.uid);
+      () async {
+        recipeProvider.loadUserRecipes(user.uid);
 
-      final all = recipeProvider.recipes;
-      await context.read<ShoppingProvider>().hydrateFromStorage(all);
+        final all = recipeProvider.recipes;
+        await context.read<ShoppingProvider>().hydrateFromStorage(all);
 
-      await context.read<IngredientsProvider>().fetchSuggestions(user.uid);
+        await context.read<IngredientsProvider>().fetchSuggestions(user.uid);
+      }();
     }
-  };
-
-  _authProvider!.addListener(_authStateListener!);
-
-  final user = _authProvider!.currentUser;
-  if (user != null) {
-    () async {
-      recipeProvider.loadUserRecipes(user.uid);
-
-      final all = recipeProvider.recipes;
-      await context.read<ShoppingProvider>().hydrateFromStorage(all);
-
-      await context.read<IngredientsProvider>().fetchSuggestions(user.uid);
-    }();
   }
-}
-
 
   void dispose() {
     if (_authProvider != null && _authStateListener != null) {
@@ -245,8 +243,8 @@ class HomeController {
                             for (final r in chosen) ...[
                               _PersonsRow(
                                 title: r.title,
-                                value: personsByRecipe[r.id!] ??
-                                    (r.servings ?? 4),
+                                value:
+                                    personsByRecipe[r.id!] ?? (r.servings ?? 4),
                                 onMinus: () {
                                   final id = r.id!;
                                   final current =
@@ -294,17 +292,22 @@ class HomeController {
           .where((r) => r.id != null && selected.contains(r.id))
           .toList();
 
+      // On sort du mode sélection dans l'écran Home
       selectionMode = false;
       selected.clear();
       notify();
 
-      context.push(
-        '/shopping',
-        extra: ShoppingListArgs(
-          recipes: selectedRecipes,
-          personsByRecipe: personsByRecipe,
-        ),
-      );
+      // On remplit le provider (et ça persiste automatiquement)
+      final shopping = context.read<ShoppingProvider>();
+      for (final r in selectedRecipes) {
+        final id = r.id!;
+        final persons = personsByRecipe[id] ?? (r.servings ?? 4);
+        await shopping.addRecipe(r, persons);
+      }
+
+      if (!context.mounted) return;
+      // On va directement à l'onglet Courses
+      context.go('/courses');
     }
   }
 }

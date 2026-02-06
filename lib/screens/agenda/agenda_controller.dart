@@ -28,21 +28,29 @@ class AgendaController {
 
   final Map<DateTime, Map<MealType, PlannedMeal>> _plans = {};
 
-  DateTime _dayKey(DateTime d) => DateTime(d.year, d.month, d.day);
-
-  DateTime _mondayOf(DateTime d) {
-    final k = _dayKey(d);
-    return k.subtract(Duration(days: k.weekday - DateTime.monday));
-  }
+  // ========== Getters ==========
 
   List<DateTime> get weekDays =>
       List.generate(7, (i) => _dayKey(_weekStart.add(Duration(days: i))));
+
+  bool get canExport {
+    for (final entry in _plans.entries) {
+      for (final m in entry.value.values) {
+        if (m.recipe.id != null) return true;
+      }
+    }
+    return false;
+  }
+
+  // ========== Initialization ==========
 
   Future<void> init(BuildContext context) async {
     _weekStart = _mondayOf(DateTime.now());
     await _load(context);
     notify();
   }
+
+  // ========== Navigation ==========
 
   void prevWeek() {
     _weekStart = _dayKey(_weekStart.subtract(const Duration(days: 7)));
@@ -58,6 +66,8 @@ class AgendaController {
     _weekStart = _mondayOf(DateTime.now());
     notify();
   }
+
+  // ========== Meals Management ==========
 
   PlannedMeal? mealFor(DateTime day, MealType type) {
     final k = _dayKey(day);
@@ -98,14 +108,7 @@ class AgendaController {
     await _save();
   }
 
-  bool get canExport {
-    for (final entry in _plans.entries) {
-      for (final m in entry.value.values) {
-        if (m.recipe.id != null) return true;
-      }
-    }
-    return false;
-  }
+  // ========== Export ==========
 
   Future<void> exportToCourses(BuildContext context) async {
     final shopping = context.read<ShoppingProvider>();
@@ -132,9 +135,28 @@ class AgendaController {
     notify();
   }
 
+  // ========== Data Access ==========
+
   List<Recipe> allRecipes(BuildContext context) {
     return context.read<RecipeProvider>().recipes;
   }
+
+  List<Recipe> getFilteredRecipes(BuildContext context, {
+    RecipeCategory? category,
+    String? query,
+  }) {
+    final allRecipes = context.read<RecipeProvider>().recipes;
+    
+    if (category == null) return [];
+    
+    return allRecipes.where((r) {
+      if (r.category != category) return false;
+      if (query == null || query.isEmpty) return true;
+      return r.title.toLowerCase().contains(query.toLowerCase());
+    }).toList();
+  }
+
+  // ========== Formatting ==========
 
   String weekRangeLabel() {
     final start = _weekStart;
@@ -165,6 +187,52 @@ class AgendaController {
   String dayShortDateFr(DateTime d) {
     final m = _monthShortFr(d.month);
     return '${d.day} $m';
+  }
+
+  String dayChipLabel(DateTime d) {
+    const names = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+    final idx = (d.weekday - 1) % 7;
+    return names[idx];
+  }
+
+  String dayHumanReadable(DateTime d) => '${dayChipLabel(d)} ${d.day}/${d.month}';
+
+  String mealTypeLabel(MealType type) {
+    return type == MealType.lunch ? 'Midi' : 'Soir';
+  }
+
+  String formatMealConfirmation(Recipe recipe, DateTime day, MealType type) {
+    return 'Ajouté : ${recipe.title} • ${dayHumanReadable(day)} • ${mealTypeLabel(type)}';
+  }
+
+  // ========== Navigation Helpers ==========
+
+  DateTime getNextSlot(DateTime currentDay, MealType currentSlot) {
+    final idx = weekDays.indexWhere((x) =>
+        x.year == currentDay.year &&
+        x.month == currentDay.month &&
+        x.day == currentDay.day);
+    
+    if (idx == -1) return currentDay;
+
+    if (currentSlot == MealType.lunch) {
+      return currentDay; // Same day, will change slot
+    }
+
+    return weekDays[(idx + 1) % weekDays.length];
+  }
+
+  MealType getNextMealType(MealType current) {
+    return current == MealType.lunch ? MealType.dinner : MealType.lunch;
+  }
+
+  // ========== Private Helpers ==========
+
+  DateTime _dayKey(DateTime d) => DateTime(d.year, d.month, d.day);
+
+  DateTime _mondayOf(DateTime d) {
+    final k = _dayKey(d);
+    return k.subtract(Duration(days: k.weekday - DateTime.monday));
   }
 
   String _monthFr(int m) {
@@ -202,6 +270,8 @@ class AgendaController {
     ];
     return months[(m - 1).clamp(0, 11)];
   }
+
+  // ========== Persistence ==========
 
   Future<void> _save() async {
     final prefs = await SharedPreferences.getInstance();

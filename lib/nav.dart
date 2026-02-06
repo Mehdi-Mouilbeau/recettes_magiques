@@ -15,7 +15,6 @@ import 'package:recette_magique/screens/home/home_screen.dart';
 import 'package:recette_magique/screens/scan/scan_screen.dart';
 import 'package:recette_magique/screens/recipe/recipe_detail_screen.dart';
 import 'package:recette_magique/screens/shopping/shopping_home_screen.dart';
-import 'package:recette_magique/screens/shopping/shopping_list_screen.dart';
 import 'package:recette_magique/screens/agenda/agenda_screen.dart';
 import 'package:recette_magique/screens/account/account_screen.dart';
 
@@ -165,21 +164,6 @@ class AppRouter {
                 );
               },
             ),
-            GoRoute(
-              path: AppRoutes.shopping,
-              name: 'shopping',
-              pageBuilder: (context, state) {
-                final extra = state.extra;
-                if (extra is! ShoppingListArgs) {
-                  return const MaterialPage(
-                    child: Scaffold(
-                      body: Center(child: Text('Arguments invalides')),
-                    ),
-                  );
-                }
-                return MaterialPage(child: ShoppingListScreen(args: extra));
-              },
-            ),
           ],
         ),
       ],
@@ -193,7 +177,6 @@ class AppRoutes {
 
   static const String home = '/home';
   static const String scan = '/scan';
-  static const String shopping = '/shopping';
   static const String recipeDetail = '/recipe';
   static const String courses = '/courses';
   static const String agenda = '/agenda';
@@ -233,47 +216,40 @@ class _RootShell extends StatelessWidget {
 
   /// Chip icône + texte avec fond quand sélectionné
   Widget _navItem({
-  required BuildContext context,
-  required String asset,
-  required String label,
-  required bool selected,
-}) {
-  final bg = selected
-      ? AppColors.primaryHeader
-      : Colors.transparent;
+    required BuildContext context,
+    required String asset,
+    required String label,
+    required bool selected,
+  }) {
+    final bg = selected ? AppColors.primaryHeader : Colors.transparent;
+    final fg = Colors.black;
 
-  final fg = Colors.black;
-      
-
-  return Container(
-    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-    decoration: BoxDecoration(
-      color: bg,
-      borderRadius: BorderRadius.circular(16),
-    ),
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Image.asset(
-          asset,
-          width: 22,
-          height: 22,
-          // si icônes monochromes :
-          // color: fg,
-        ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                fontWeight: FontWeight.w900,
-                color: fg,
-              ),
-        ),
-      ],
-    ),
-  );
-}
-
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Image.asset(
+            asset,
+            width: 22,
+            height: 22,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  fontWeight: FontWeight.w900,
+                  color: fg,
+                ),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -305,16 +281,11 @@ class _RootShell extends StatelessWidget {
                     surfaceTintColor: Colors.transparent,
                     shadowColor: Colors.transparent,
                     elevation: 0,
-
                     selectedIndex: current,
                     onDestinationSelected: (i) => _onTap(context, i),
-
-                    // IMPORTANT : on coupe l'indicator qui ne couvre que l'icône
                     indicatorColor: Colors.transparent,
-
-                    // On affiche nous-mêmes le label dans le chip
-                    labelBehavior: NavigationDestinationLabelBehavior.alwaysHide,
-
+                    labelBehavior:
+                        NavigationDestinationLabelBehavior.alwaysHide,
                     destinations: [
                       NavigationDestination(
                         icon: _navItem(
