@@ -279,7 +279,7 @@ function sanitizeRecipeJson(obj) {
     category: String(obj?.category || "")
       .trim()
       .toLowerCase(),
-    servings: toInt(obj?.servings), 
+    servings: toInt(obj?.servings),
     ingredients: Array.isArray(obj?.ingredients)
       ? obj.ingredients.map((x) => String(x).trim()).filter(Boolean)
       : [],
@@ -440,7 +440,6 @@ function buildPrompt({ title, category, ingredients, strict = false }) {
   })();
 
   // ---------- accompaniment / extra foods ----------
-  // Objectif: 1–2 éléments “autour” du plat (sans devenir une scène chargée)
   const hasTomato =
     ingAll.some((x) => /\btomate(s)?\b/.test(x)) ||
     /\btomate(s)?\b/.test(lowerTitle);
@@ -452,7 +451,6 @@ function buildPrompt({ title, category, ingredients, strict = false }) {
   const extraFoods = (() => {
     if (cat === "boisson") return ["a citrus garnish", "ice cubes"];
     if (isSoupLike && hasTomato) {
-      // Soupe tomate: le trio gagnant visuel
       const arr = ["a slice of crusty bread or croutons"];
       arr.push(
         hasCream
@@ -462,7 +460,7 @@ function buildPrompt({ title, category, ingredients, strict = false }) {
       arr.push(
         hasBasil ? "fresh basil leaves as garnish" : "fresh herbs as garnish",
       );
-      return arr.slice(0, 2); // 1–2 éléments max
+      return arr.slice(0, 2);
     }
     if (isSoupLike)
       return ["a slice of crusty bread", "fresh herbs garnish"].slice(0, 2);
@@ -536,7 +534,72 @@ function buildPrompt({ title, category, ingredients, strict = false }) {
   return base.concat(strictAdd).filter(Boolean).join(" ");
 }
 
-/* ---------------------- Imagen generation (single-pass) ------------------ */
+/* ---------------------- Imagen generation (robust) ------------------ */
+
+/**
+ * Pollinations can intermittently return HTML/JSON error pages (sometimes with 200 OK),
+ * or different image types. This wrapper:
+ * - checks Content-Type is image/*
+ * - falls back across models (flux is often overloaded)
+ * - returns correct mimeType
+ */
+async function fetchPollinationsImage({ promptText, width = 512, height = 512 }) {
+  const encodedPrompt = encodeURIComponent(promptText);
+
+  // Flux can be unstable; we try a sequence.
+  const modelAttempts = ["flux", "sdxl", "stable-diffusion", null];
+
+  // cache-buster seed (helps with edge caches returning weird content)
+  const seed = Math.floor(Math.random() * 1e9);
+
+  let lastErr;
+
+  for (const model of modelAttempts) {
+    const modelPart = model ? `&model=${encodeURIComponent(model)}` : "";
+    const url = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${width}&height=${height}${modelPart}&nologo=true&enhance=false&seed=${seed}`;
+
+    try {
+      const resp = await fetchWithTimeout(
+        url,
+        {
+          // Sometimes helps with proxies/caches; safe to include
+          headers: {
+            "accept": "image/*,application/json;q=0.9,text/plain;q=0.8,*/*;q=0.7",
+          },
+        },
+        30000,
+      );
+
+      if (!resp.ok) {
+        throw new Error(`Pollinations HTTP ${resp.status} (model=${model || "auto"})`);
+      }
+
+      const contentType = (resp.headers.get("content-type") || "").toLowerCase();
+
+      // If not an image, read a short preview for debugging
+      if (!contentType.startsWith("image/")) {
+        const preview = (await resp.text()).slice(0, 300);
+        throw new Error(
+          `Pollinations non-image response (model=${model || "auto"}, content-type=${contentType}): ${preview}`,
+        );
+      }
+
+      const arrayBuffer = await resp.arrayBuffer();
+      const b64 = Buffer.from(arrayBuffer).toString("base64");
+
+      return { b64, mimeType: contentType, usedModel: model || "auto" };
+    } catch (e) {
+      lastErr = e;
+      // move to next model attempt
+      logger.warn("Pollinations attempt failed", {
+        model: model || "auto",
+        error: String(e?.message || e).slice(0, 500),
+      });
+    }
+  }
+
+  throw lastErr || new Error("Pollinations failed (all models)");
+}
 
 async function generateImageBase64({
   title,
@@ -545,20 +608,20 @@ async function generateImageBase64({
   strict = true,
 }) {
   const promptText = buildPrompt({ title, category, ingredients, strict });
-  const encodedPrompt = encodeURIComponent(promptText);
-  const url = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=512&height=512&model=flux&nologo=true&enhance=false`;
 
   const doCall = async () => {
-    const resp = await fetchWithTimeout(url, {}, 30000);
-    if (!resp.ok) throw new Error(`Pollinations HTTP ${resp.status}`);
+    const res = await fetchPollinationsImage({
+      promptText,
+      width: 512,
+      height: 512,
+    });
 
-    const arrayBuffer = await resp.arrayBuffer();
-    const b64 = Buffer.from(arrayBuffer).toString("base64");
-
-    return { b64, mimeType: "image/jpeg" };
+    // NOTE: we return the real mimeType (jpeg/png/webp...), caller uses sharp anyway.
+    return { b64: res.b64, mimeType: res.mimeType };
   };
 
-  return await withRetry(doCall, { retries: 2, baseMs: 700 });
+  // Retry for transient errors (incl non-image responses, 503, timeouts, 429 non-daily, etc.)
+  return await withRetry(doCall, { retries: 3, baseMs: 900 });
 }
 
 /* ----------------------------- 1) OCR -> JSON ---------------------------- */

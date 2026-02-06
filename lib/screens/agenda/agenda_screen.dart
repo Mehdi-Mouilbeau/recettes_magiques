@@ -158,14 +158,7 @@ class _HeaderCard extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(18),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFFF6EDB6),
-            Color(0xFFECE6A2),
-          ],
-        ),
+        color: AppColors.secondaryHeader,
         boxShadow: const [
           BoxShadow(
             blurRadius: 18,
@@ -268,16 +261,9 @@ class _DayCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.85),
+        color: AppColors.secondaryHeader,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: AppColors.border),
-        boxShadow: const [
-          BoxShadow(
-            blurRadius: 14,
-            offset: Offset(0, 10),
-            color: Color(0x14000000),
-          ),
-        ],
       ),
       child: Column(
         children: [
@@ -315,7 +301,7 @@ class _DayCard extends StatelessWidget {
           _SlotTile(
             title: 'Midi',
             meal: lunch,
-            bg: const Color(0xFFEAF6DF),
+            bg: AppColors.control,
             onTap: lunch == null ? onOpenPlanner : () => onOpenRecipe(lunch!),
             onRemove: lunch == null ? null : () => onRemove(MealType.lunch),
           ),

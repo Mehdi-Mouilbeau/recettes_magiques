@@ -236,7 +236,7 @@ class _ScanBody extends StatelessWidget {
         const SizedBox(height: 24),
         FilledButton.icon(
           onPressed: isProcessing ? null : onPickCamera,
-          icon: const Icon(Icons.camera_alt_outlined),
+          icon: const Icon(Icons.camera_alt_outlined,color: Colors.black),
           label: const Text('Prendre une photo',
               style: TextStyle(color: Colors.black)),
           style: FilledButton.styleFrom(
@@ -250,7 +250,7 @@ class _ScanBody extends StatelessWidget {
         const SizedBox(height: 16),
         OutlinedButton.icon(
           onPressed: isProcessing ? null : onPickGallery,
-          icon: const Icon(Icons.photo_library_outlined),
+          icon: const Icon(Icons.photo_library_outlined, color: Colors.black),
           label: const Text(
             'Choisir depuis la galerie',
             style: TextStyle(color: Colors.black),
