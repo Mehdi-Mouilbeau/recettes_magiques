@@ -1,119 +1,202 @@
-# Architecture de Recette Magique
+# Architecture — Recettes Magiques
 
-## 📱 Vue d'ensemble
+Ce document décrit l’architecture technique, les choix de conception et les flux de données de l’application mobile Recettes Magiques.
 
-Application Flutter de scan et organisation de recettes utilisant OCR et IA générative.
+---
 
-## 🏗️ Architecture MVVM
+# 1. Vue d’ensemble
+
+Recettes Magiques est une application mobile développée en Flutter permettant de :
+
+- Scanner des recettes depuis des livres de cuisine (OCR)
+- Structurer automatiquement les données via IA
+- Stocker les recettes dans le cloud
+- Organiser les recettes par catégorie
+- Afficher les détails avec image générée
+
+L’application repose sur une architecture MVVM claire, intégrant Firebase et un traitement IA via Cloud Functions.
+
+---
+
+# 2. Architecture générale — MVVM
+
+L’application suit le pattern **MVVM (Model–View–ViewModel)** avec Provider pour la gestion d’état.
+
+## Structure du projet
 
 ```
 lib/
-├── main.dart                    # Point d'entrée, configuration Firebase et Providers
-├── nav.dart                     # Configuration go_router et redirections auth
-├── theme.dart                   # Thème personnalisé, couleurs, espacements
+├── main.dart
+├── nav.dart
+├── theme.dart
 │
-├── models/                      # Modèles de données
-│   ├── user_model.dart         # Modèle utilisateur (uid, email, displayName)
-│   └── recipe_model.dart       # Modèle recette (title, category, ingredients, steps)
-│
-├── services/                    # Services métier (logique Firebase et APIs)
-│   ├── auth_service.dart       # Authentification (email, Google)
-│   ├── recipe_service.dart     # CRUD recettes Firestore
-│   ├── storage_service.dart    # Upload/suppression images Firebase Storage
-│   ├── ocr_service.dart        # Extraction texte via Google ML Kit
-│   └── ai_service.dart         # Appel Cloud Function pour traitement IA
-│
-├── providers/                   # Gestion d'état avec Provider
-│   ├── auth_provider.dart      # État authentification
-│   └── recipe_provider.dart    # État liste recettes, filtres
-│
-├── screens/                     # Écrans de l'application
-│   ├── auth/
-│   │   ├── login_screen.dart   # Connexion email/Google
-│   │   └── register_screen.dart # Inscription
-│   ├── home/
-│   │   └── home_screen.dart    # Liste recettes + filtres catégorie
-│   ├── scan/
-│   │   └── scan_screen.dart    # Scan photo + OCR + traitement IA
-│   └── recipe/
-│       └── recipe_detail_screen.dart # Détail recette + suppression
-│
-└── widgets/                     # Widgets réutilisables
-    ├── recipe_card.dart        # Carte recette pour la liste
-    └── category_filter.dart    # Filtres de catégorie horizontaux
+├── models/
+├── services/
+├── providers/
+├── screens/
+└── widgets/
 ```
 
-## 🔄 Flux de données
+## Répartition des responsabilités
 
-### 1. Authentification
+### 🔹 Models
+
+Contiennent uniquement les structures de données :
+
+- `UserModel`
+- `RecipeModel`
+
+Aucune logique métier.
+
+---
+
+### 🔹 Services
+
+Couche métier et intégration externe :
+
+- Authentification Firebase
+- CRUD Firestore
+- Gestion Firebase Storage
+- OCR via Google ML Kit
+- Appel Cloud Function pour traitement IA
+
+Les services encapsulent toute communication externe.
+
+---
+
+### 🔹 Providers (ViewModels)
+
+Couche intermédiaire entre UI et services :
+
+- Gestion de l’état d’authentification
+- Gestion de la liste des recettes
+- Filtres par catégorie
+- Orchestration des opérations CRUD
+
+Les Providers exposent des données réactives à l’interface.
+
+---
+
+### 🔹 Screens (Vues)
+
+Couche UI uniquement :
+
+- Aucune logique Firebase directe
+- Aucune logique API
+- Interaction uniquement via les Providers
+
+---
+
+# 3. Flux de données
+
+## 3.1 Authentification
+
 ```
-LoginScreen → AuthProvider → AuthService → Firebase Auth → Redirect vers Home
+LoginScreen
+   ↓
+AuthProvider
+   ↓
+AuthService
+   ↓
+Firebase Authentication
+   ↓
+Redirection via go_router
 ```
 
-### 2. Scan de recette
+Le `AuthProvider` écoute `authStateChanges` pour mettre à jour automatiquement l’interface.
+
+---
+
+## 3.2 Scan d’une recette
+
 ```
-ScanScreen → Image Picker → OCRService (ML Kit) → AIService (Cloud Function)
-→ RecipeProvider → RecipeService (Firestore) + StorageService (Storage)
-→ Retour Home avec liste actualisée
+ScanScreen
+   ↓
+Image Picker
+   ↓
+OCRService (ML Kit – local)
+   ↓
+AIService (Cloud Function)
+   ↓
+RecipeProvider
+   ↓
+RecipeService (Firestore)
+   ↓
+StorageService (upload image)
+   ↓
+Retour Home (mise à jour temps réel)
 ```
 
-### 3. Affichage des recettes
+### Choix techniques importants :
+
+- OCR exécuté localement (pas de coût serveur)
+- Traitement IA exécuté côté serveur (clé API protégée)
+- Firestore en temps réel pour synchronisation automatique UI
+- Séparation stricte entre métadonnées (Firestore) et fichiers (Storage)
+
+---
+
+## 3.3 Suppression d’une recette
+
 ```
-HomeScreen → RecipeProvider (écoute Stream Firestore) → Liste avec filtres
-→ Tap sur RecipeCard → RecipeDetailScreen
+RecipeDetailScreen
+   ↓
+RecipeProvider
+   ↓
+RecipeService + StorageService
+   ↓
+Suppression Firestore + Storage
+   ↓
+Actualisation Home
 ```
 
-### 4. Suppression
-```
-RecipeDetailScreen → RecipeProvider → RecipeService + StorageService
-→ Suppression Firestore + images Storage → Retour Home
-```
+---
 
-## 🎨 Design System
+# 4. Backend Firebase
 
-### Couleurs
-- **Primary**: Bleu-gris doux (#5B7C99) - moderne et professionnel
-- **Surface**: Gris très clair (#FBFCFD) - fond épuré
-- **Catégories**: Vert (entrée), Orange (plat), Rose (dessert), Bleu (boisson)
+## Services utilisés
 
-### Typographie
-- **Police**: Google Fonts Inter - élégante et lisible
-- **Hiérarchie**: Headline (titres), Title (sous-titres), Body (texte)
-- **Poids**: Bold pour titres, Regular/Medium pour corps
+- **Firebase Authentication** — Email / Password + Google Sign-In
+- **Firestore** — Base de données NoSQL temps réel
+- **Firebase Storage** — Stockage des images
+- **Cloud Functions (Node.js)** — Endpoint sécurisé pour traitement IA
 
-### Espacements
-- xs: 4px, sm: 8px, md: 16px, lg: 24px, xl: 32px, xxl: 48px
-- Utilisation cohérente via `AppSpacing`
+---
 
-### Bordures
-- sm: 8px, md: 12px, lg: 16px, xl: 24px
-- Coins arrondis pour cartes, boutons, inputs
+## Modèle de sécurité
 
-## 🔐 Sécurité Firebase
+### Règles Firestore
 
-### Firestore Rules
+Chaque utilisateur ne peut accéder qu’à ses propres recettes :
+
 ```javascript
-// Les utilisateurs ne peuvent lire/écrire que leurs propres données
 match /recipes/{recipeId} {
   allow read, write: if request.auth.uid == resource.data.userId;
 }
 ```
 
-### Storage Rules
+### Règles Storage
+
+Chaque utilisateur ne peut accéder qu’à ses propres images :
+
 ```javascript
-// Les utilisateurs ne peuvent accéder qu'à leurs images
 match /recipes/{userId}/{recipeId}/{fileName} {
   allow read, write: if request.auth.uid == userId;
 }
 ```
 
-### Cloud Functions
-- Clé API OpenAI protégée côté serveur
-- Pas d'exposition de secrets dans l'app Flutter
+### Sécurité IA
 
-## 📊 Structure des données
+- Clé API stockée uniquement dans Cloud Functions
+- Aucun secret exposé côté Flutter
+- Vérification du token Firebase avant traitement
 
-### Collection `users`
+---
+
+# 5. Modèle de données
+
+## Collection `users`
+
 ```json
 {
   "uid": "string",
@@ -125,7 +208,8 @@ match /recipes/{userId}/{recipeId}/{fileName} {
 }
 ```
 
-### Collection `recipes`
+## Collection `recipes`
+
 ```json
 {
   "userId": "string",
@@ -143,7 +227,8 @@ match /recipes/{userId}/{recipeId}/{fileName} {
 }
 ```
 
-### Storage Structure
+## Structure Storage
+
 ```
 recipes/
   {userId}/
@@ -151,110 +236,125 @@ recipes/
       {timestamp}.jpg
 ```
 
-## 🔌 Intégrations externes
+---
 
-### Google ML Kit Text Recognition
-- OCR sur device (pas d'appel réseau)
-- Supporte plusieurs langues
-- Gratuit et performant
+# 6. Design System
 
-### OpenAI API (via Cloud Function)
-- Modèle: GPT-4o-mini (économique et rapide)
-- Format de sortie: JSON structuré
-- Prompt optimisé pour extraction de recettes
+## Principes
 
-### Firebase Services
-- **Auth**: Email/Password + Google Sign-In
-- **Firestore**: Base de données NoSQL en temps réel
-- **Storage**: Stockage d'images
-- **Cloud Functions**: Endpoint sécurisé pour l'IA
+- Interface minimaliste
+- Couleurs neutres et modernes
+- Espacements généreux
+- Coins arrondis
+- Typographie Google Fonts Inter
 
-## 🚀 Navigation (go_router)
+## Système d’espacement centralisé
+
+- xs → 4px
+- sm → 8px
+- md → 16px
+- lg → 24px
+- xl → 32px
+
+Garantit cohérence visuelle et maintenabilité.
+
+---
+
+# 7. Intégrations externes
+
+## Google ML Kit (OCR local)
+
+- Traitement sur device
+- Rapide
+- Pas de coût réseau
+- Fonctionne hors ligne
+
+## Google Gemini 2.0 Flash (via Cloud Function)
+
+- Extraction et structuration des recettes
+- Classification automatique
+- Génération de JSON strict
+- Validation et fallback côté serveur
+
+## Vertex AI — Imagen 3
+
+- Génération d’images réalistes
+- Prompt engineering dynamique
+- Contraintes visuelles strictes
+- Conversion et optimisation WebP
+
+---
+
+# 8. Navigation
+
+Gestion via `go_router`.
+
+## Routes principales
 
 ```
-/login           → LoginScreen (initial si non connecté)
-/register        → RegisterScreen
-/home            → HomeScreen (initial si connecté)
-/scan            → ScanScreen
-/recipe/:id      → RecipeDetailScreen (avec FutureBuilder)
+/login
+/register
+/home
+/scan
+/recipe/:id
 ```
 
-### Redirections
-- Non connecté + route privée → /login
-- Connecté + route auth → /home
+## Logique de redirection
 
-## 📱 Gestion d'état (Provider)
+- Non connecté → /login
+- Connecté → /home
+- Protection des routes privées
 
-### AuthProvider
-- `currentUser`: User actuel Firebase
-- `isAuthenticated`: Booléen connexion
-- `signIn()`, `signUp()`, `signOut()`: Méthodes auth
-- Écoute `authStateChanges` pour mise à jour auto
+---
 
-### RecipeProvider
-- `recipes`: Liste des recettes de l'utilisateur
-- `selectedCategory`: Filtre actuel
-- `filteredRecipes`: Recettes filtrées
-- `loadUserRecipes()`: Écoute Stream Firestore
-- `createRecipe()`, `updateRecipe()`, `deleteRecipe()`: CRUD
+# 9. Gestion d’état
 
-## 🎯 Fonctionnalités principales
+## AuthProvider
 
-1. **Authentification sécurisée** (Email/Google)
-2. **Scan OCR** (caméra ou galerie)
-3. **Traitement IA** (structuration automatique)
-4. **Stockage Cloud** (Firestore + Storage)
-5. **Filtres par catégorie** (4 catégories)
-6. **Détail recette** (ingrédients + étapes numérotées)
-7. **Suppression** (avec confirmation)
+- Utilisateur courant
+- Méthodes signIn / signUp / signOut
+- Écoute automatique des changements d’authentification
 
-## 🔧 Configuration requise
+## RecipeProvider
 
-1. **Firebase Project** (voir FIREBASE_SETUP.md)
-2. **FlutterFire CLI** pour génération config
-3. **OpenAI API Key** (configurée dans Cloud Functions)
-4. **Permissions** caméra/galerie (Android/iOS)
+- Stream Firestore temps réel
+- Filtres par catégorie
+- CRUD complet
+- Synchronisation UI
 
-## 📝 Bonnes pratiques appliquées
+---
 
-- ✅ Séparation claire UI / Logique / Services
-- ✅ Gestion d'erreurs avec debugPrint()
-- ✅ Validation formulaires
-- ✅ Loading states et feedback utilisateur
-- ✅ Règles de sécurité Firebase strictes
-- ✅ Code commenté en français pour débutants
-- ✅ Design épuré et moderne (pas Material Design basique)
-- ✅ Espacement généreux et polices élégantes
-- ✅ Architecture scalable et maintenable
+# 10. Considérations production
 
-## 🐛 Points d'attention
+- Mise à jour temps réel Firestore
+- Cache images
+- Gestion des erreurs
+- États de chargement
+- Séparation claire des responsabilités
+- Règles Firebase strictes
+- Secrets protégés côté serveur
 
-### Mode test vs Production
-- L'app utilise `mockProcessRecipeText()` par défaut pour les tests
-- Remplacer par `processRecipeText()` après configuration Cloud Function
+---
 
-### OCR
-- Qualité dépend de la photo (lumière, angle, résolution)
-- Mieux fonctionne avec texte imprimé
+# 11. Évolutions possibles
 
-### IA
-- Résultats dépendent du prompt et du modèle
-- Peut nécessiter ajustements selon vos besoins
+- Recherche full-text (Algolia)
+- Mode hors ligne
+- Favoris et collections
+- Pagination
+- Partage entre utilisateurs
+- Export PDF
+- API nutrition
+- Reconnaissance d’image avancée
 
-### Performances
-- Stream Firestore se met à jour en temps réel
-- Images mises en cache (CachedNetworkImage)
-- Considérer pagination si > 100 recettes
+---
 
-## 🚀 Évolutions futures possibles
+# Résumé architectural
 
-1. Recherche full-text (Algolia)
-2. Favoris et collections
-3. Partage de recettes entre utilisateurs
-4. Mode hors-ligne (local storage)
-5. Export PDF
-6. Timer de cuisine
-7. Liste de courses
-8. Nutrition (intégration API)
-9. Traductions multilingues
-10. Reconnaissance d'images (plats)
+Recettes Magiques démontre :
+
+- Une architecture MVVM claire et maintenable
+- Une séparation stricte UI / logique métier / services
+- Une intégration sécurisée d’IA
+- Une base cloud scalable
+- Une application pensée pour évoluer
