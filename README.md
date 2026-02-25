@@ -4,6 +4,18 @@ Application mobile intelligente permettant de scanner des recettes papier et de 
 
 ---
 
+## 📸 Screenshots
+
+<p align="center">
+  <img src="screenshots/home.png" width="250">
+  <img src="screenshots/detail.png" width="250">
+  <img src="screenshots/scan.png" width="250">
+  <img src="screenshots/planning.png" width="250">
+  <img src="screenshots/liste.png" width="250">
+</p>
+
+---
+
 # 🇫🇷 Version Française
 
 ## Description
@@ -111,11 +123,9 @@ flutter pub get
 flutter run
 ```
 
-
 # 🇬🇧 Description (English)
 
-
-## Recettes dans ma poche 
+## Recettes dans ma poche
 
 An intelligent Flutter mobile application that transforms scanned cookbook recipes into structured digital recipes enriched with AI-generated images.
 
