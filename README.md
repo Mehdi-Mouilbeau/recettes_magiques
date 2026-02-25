@@ -1,4 +1,4 @@
-# Recettes dans ma poche 🍳✨
+# Recettes dans ma poche
 
 Application mobile intelligente permettant de scanner des recettes papier et de les transformer automatiquement en recettes numériques structurées, avec génération d’image IA.
 
