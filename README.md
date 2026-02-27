@@ -85,14 +85,14 @@ L’image est :
 
 ## Fonctionnalités
 
-- 📷 Scan de recette
-- 🧹 Correction automatique OCR
-- 🧠 Structuration intelligente
-- 🏷️ Catégorisation automatique
-- ⏱️ Calcul automatique du temps total
-- 🎨 Génération d’image IA
-- 🔄 Régénération contrôlée d’image
-- 🔐 Sécurisation par token Firebase
+-  Scan de recette
+-  Correction automatique OCR
+-  Structuration intelligente
+-  Catégorisation automatique
+-  Calcul automatique du temps total
+-  Génération d’image IA
+-  Régénération contrôlée d’image
+-  Sécurisation par token Firebase
 
 ---
 
@@ -224,15 +224,15 @@ Built with:
 
 ## Features
 
-- 📷 Recipe scanning
-- 🧹 OCR text normalization
-- 🧠 AI-powered structuring
-- 🏷️ Automatic categorization
-- ⏱️ Cooking & preparation time detection
-- 🧮 Total time calculation
-- 🎨 AI image generation
-- 🔄 Controlled image regeneration
-- 🔐 Secure backend endpoints
+-  Recipe scanning
+-  OCR text normalization
+-  AI-powered structuring
+-  Automatic categorization
+-  Cooking & preparation time detection
+-  Total time calculation
+-  AI image generation
+-  Controlled image regeneration
+-  Secure backend endpoints
 
 ---
 

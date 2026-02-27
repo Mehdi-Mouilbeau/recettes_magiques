@@ -21,23 +21,27 @@ class UserModel {
 
   /// Convertit le modèle en Map pour Firestore
   Map<String, dynamic> toJson() => {
-    'uid': uid,
-    'email': email,
-    'displayName': displayName,
-    'photoUrl': photoUrl,
-    'createdAt': Timestamp.fromDate(createdAt),
-    'updatedAt': Timestamp.fromDate(updatedAt),
-  };
+        'uid': uid,
+        'email': email,
+        'displayName': displayName,
+        'photoUrl': photoUrl,
+        'createdAt': Timestamp.fromDate(createdAt),
+        'updatedAt': Timestamp.fromDate(updatedAt),
+      };
 
   /// Crée un modèle depuis les données Firestore
   factory UserModel.fromJson(Map<String, dynamic> json) => UserModel(
-    uid: json['uid'] as String,
-    email: json['email'] as String,
-    displayName: json['displayName'] as String?,
-    photoUrl: json['photoUrl'] as String?,
-    createdAt: (json['createdAt'] as Timestamp).toDate(),
-    updatedAt: (json['updatedAt'] as Timestamp).toDate(),
-  );
+        uid: (json['uid'] ?? '') as String,
+        email: (json['email'] ?? '') as String,
+        displayName: json['displayName'] as String?,
+        photoUrl: json['photoUrl'] as String?,
+        createdAt: json['createdAt'] != null
+            ? (json['createdAt'] as Timestamp).toDate()
+            : DateTime.now(),
+        updatedAt: json['updatedAt'] != null
+            ? (json['updatedAt'] as Timestamp).toDate()
+            : DateTime.now(),
+      );
 
   /// Crée une copie modifiée du modèle
   UserModel copyWith({
@@ -47,12 +51,13 @@ class UserModel {
     String? photoUrl,
     DateTime? createdAt,
     DateTime? updatedAt,
-  }) => UserModel(
-    uid: uid ?? this.uid,
-    email: email ?? this.email,
-    displayName: displayName ?? this.displayName,
-    photoUrl: photoUrl ?? this.photoUrl,
-    createdAt: createdAt ?? this.createdAt,
-    updatedAt: updatedAt ?? this.updatedAt,
-  );
+  }) =>
+      UserModel(
+        uid: uid ?? this.uid,
+        email: email ?? this.email,
+        displayName: displayName ?? this.displayName,
+        photoUrl: photoUrl ?? this.photoUrl,
+        createdAt: createdAt ?? this.createdAt,
+        updatedAt: updatedAt ?? this.updatedAt,
+      );
 }

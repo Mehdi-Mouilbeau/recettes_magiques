@@ -26,7 +26,7 @@ class AIService {
   Future<Map<String, dynamic>?> processRecipeText(String ocrText) async {
   try {
     debugPrint('📤 Envoi du texte à l\'IA (${ocrText.length} caractères)');
-    debugPrint('📝 TEXTE OCR COMPLET:\n$ocrText'); // ⬅️ AJOUTER CETTE LIGNE
+    debugPrint('📝 TEXTE OCR COMPLET:\n$ocrText'); 
 
     final response = await http
         .post(
@@ -34,7 +34,7 @@ class AIService {
           headers: {'Content-Type': 'application/json'},
           body: jsonEncode({'text': ocrText}),
         )
-        .timeout(const Duration(seconds: 20));
+        .timeout(const Duration(seconds: 130));
 
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body) as Map<String, dynamic>;

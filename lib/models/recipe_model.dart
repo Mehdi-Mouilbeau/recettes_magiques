@@ -1,6 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-/// Catégories de recettes
 enum RecipeCategory {
   entree,
   plat,
@@ -21,7 +20,6 @@ enum RecipeCategory {
   }
 
   static RecipeCategory fromString(String value) {
-    // Normaliser les accents
     String normalize(String s) {
       return s
           .toLowerCase()
@@ -37,9 +35,9 @@ enum RecipeCategory {
           .replaceAll('ù', 'u')
           .replaceAll('ç', 'c');
     }
-    
+
     final normalized = normalize(value);
-    
+
     return RecipeCategory.values.firstWhere(
       (e) => normalize(e.name) == normalized,
       orElse: () => RecipeCategory.plat,
@@ -47,8 +45,6 @@ enum RecipeCategory {
   }
 }
 
-/// Modèle de données pour une recette
-/// Structure retournée par l'IA après traitement OCR
 class Recipe {
   final String? id;
   final String userId;
@@ -60,14 +56,11 @@ class Recipe {
   final String source;
   final String? preparationTime;
   final String? cookingTime;
-  @Deprecated('Use preparationTime and cookingTime instead')
   final String estimatedTime;
   final String? imageUrl;
   final String? scannedImageUrl;
   final bool isFavorite;
-  /// Nombre de personnes/portions pour les quantités d'ingrédients
   final int? servings;
-  /// Note personnelle de l'utilisateur
   final String? note;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -93,50 +86,48 @@ class Recipe {
     required this.updatedAt,
   });
 
-  /// Convertit le modèle en Map pour Firestore
   Map<String, dynamic> toJson() => {
-    'userId': userId,
-    'title': title,
-    'category': category.name,
-    'ingredients': ingredients,
-    'steps': steps,
-    'tags': tags,
-    'source': source,
-    if (preparationTime != null) 'preparationTime': preparationTime,
-    if (cookingTime != null) 'cookingTime': cookingTime,
-    'estimatedTime': estimatedTime,
-    'imageUrl': imageUrl,
-    'scannedImageUrl': scannedImageUrl,
-    'favorite': isFavorite,
-    if (servings != null) 'servings': servings,
-    'createdAt': Timestamp.fromDate(createdAt),
-    'updatedAt': Timestamp.fromDate(updatedAt),
-    if (note != null) 'note': note,
-  };
+        'userId': userId,
+        'title': title,
+        'category': category.name,
+        'ingredients': ingredients,
+        'steps': steps,
+        'tags': tags,
+        'source': source,
+        if (preparationTime != null) 'preparationTime': preparationTime,
+        if (cookingTime != null) 'cookingTime': cookingTime,
+        'estimatedTime': estimatedTime,
+        'imageUrl': imageUrl,
+        'scannedImageUrl': scannedImageUrl,
+        'favorite': isFavorite,
+        if (servings != null) 'servings': servings,
+        if (note != null) 'note': note,
+        'createdAt': Timestamp.fromDate(createdAt),
+        'updatedAt': Timestamp.fromDate(updatedAt),
+      };
 
-  /// Crée un modèle depuis les données Firestore
   factory Recipe.fromJson(Map<String, dynamic> json, String id) => Recipe(
-    id: id,
-    userId: (json['userId'] ?? '') as String,
-    title: (json['title'] ?? '') as String,
-    category: _parseCategory(json['category']),
-    ingredients: _parseStringList(json['ingredients']),
-    steps: _parseStringList(json['steps']),
-    tags: _parseStringList(json['tags']),
-    source: (json['source'] ?? '') as String,
-    preparationTime: json['preparationTime'] as String?,
-    cookingTime: json['cookingTime'] as String?,
-    estimatedTime: (json['estimatedTime'] ?? '') as String,
-    imageUrl: json['imageUrl'] as String?,
-    scannedImageUrl: json['scannedImageUrl'] as String?,
-    isFavorite: (json['favorite'] ?? json['isFavorite'] ?? false) as bool,
-    servings: _parseServings(json['servings'] ?? json['persons'] ?? json['serves']),
-    note: (json['note'] as String?)?.trim(),
-    createdAt: _parseDate(json['createdAt']),
-    updatedAt: _parseDate(json['updatedAt']),
-  );
+        id: id,
+        userId: (json['userId'] ?? '') as String,
+        title: (json['title'] ?? '') as String,
+        category: _parseCategory(json['category']),
+        ingredients: _parseStringList(json['ingredients']),
+        steps: _parseStringList(json['steps']),
+        tags: _parseStringList(json['tags']),
+        source: (json['source'] ?? '') as String,
+        preparationTime: json['preparationTime'] as String?,
+        cookingTime: json['cookingTime'] as String?,
+        estimatedTime: (json['estimatedTime'] ?? '') as String,
+        imageUrl: json['imageUrl'] as String?,
+        scannedImageUrl: json['scannedImageUrl'] as String?,
+        isFavorite: (json['favorite'] ?? json['isFavorite'] ?? false) as bool,
+        servings:
+            _parseServings(json['servings'] ?? json['persons'] ?? json['serves']),
+        note: (json['note'] as String?)?.trim(),
+        createdAt: _parseDate(json['createdAt']),
+        updatedAt: _parseDate(json['updatedAt']),
+      );
 
-  /// Crée une copie modifiée du modèle
   Recipe copyWith({
     String? id,
     String? userId,
@@ -156,26 +147,27 @@ class Recipe {
     String? note,
     DateTime? createdAt,
     DateTime? updatedAt,
-  }) => Recipe(
-    id: id ?? this.id,
-    userId: userId ?? this.userId,
-    title: title ?? this.title,
-    category: category ?? this.category,
-    ingredients: ingredients ?? this.ingredients,
-    steps: steps ?? this.steps,
-    tags: tags ?? this.tags,
-    source: source ?? this.source,
-    preparationTime: preparationTime ?? this.preparationTime,
-    cookingTime: cookingTime ?? this.cookingTime,
-    estimatedTime: estimatedTime ?? this.estimatedTime,
-    imageUrl: imageUrl ?? this.imageUrl,
-    scannedImageUrl: scannedImageUrl ?? this.scannedImageUrl,
-    isFavorite: isFavorite ?? this.isFavorite,
-    servings: servings ?? this.servings,
-    note: note ?? this.note,
-    createdAt: createdAt ?? this.createdAt,
-    updatedAt: updatedAt ?? this.updatedAt,
-  );
+  }) =>
+      Recipe(
+        id: id ?? this.id,
+        userId: userId ?? this.userId,
+        title: title ?? this.title,
+        category: category ?? this.category,
+        ingredients: ingredients ?? this.ingredients,
+        steps: steps ?? this.steps,
+        tags: tags ?? this.tags,
+        source: source ?? this.source,
+        preparationTime: preparationTime ?? this.preparationTime,
+        cookingTime: cookingTime ?? this.cookingTime,
+        estimatedTime: estimatedTime ?? this.estimatedTime,
+        imageUrl: imageUrl ?? this.imageUrl,
+        scannedImageUrl: scannedImageUrl ?? this.scannedImageUrl,
+        isFavorite: isFavorite ?? this.isFavorite,
+        servings: servings ?? this.servings,
+        note: note ?? this.note,
+        createdAt: createdAt ?? this.createdAt,
+        updatedAt: updatedAt ?? this.updatedAt,
+      );
 
   static DateTime _parseDate(dynamic value) {
     if (value == null) return DateTime.fromMillisecondsSinceEpoch(0);
@@ -183,7 +175,6 @@ class Recipe {
     if (value is DateTime) return value;
     if (value is int) return DateTime.fromMillisecondsSinceEpoch(value);
     if (value is String) {
-      // Essayez ISO 8601, sinon retour epoch
       try {
         return DateTime.parse(value);
       } catch (_) {
@@ -198,17 +189,19 @@ class Recipe {
     if (value is List) {
       return value.map((e) => e.toString()).toList();
     }
-    // Si chaîne séparée par des virgules
     if (value is String) {
-      return value.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+      return value
+          .split(',')
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty)
+          .toList();
     }
     return <String>[];
   }
 
   static RecipeCategory _parseCategory(dynamic value) {
     if (value == null) return RecipeCategory.plat;
-    
-    // Normaliser : supprimer les accents et mettre en minuscules
+
     String normalize(String s) {
       return s
           .toLowerCase()
@@ -224,30 +217,30 @@ class Recipe {
           .replaceAll('ù', 'u')
           .replaceAll('ç', 'c');
     }
-    
+
     final normalized = normalize(value.toString());
-    
-    // Gérer noms localisés avec normalisation
+
     if (normalized == 'entree') return RecipeCategory.entree;
-    if (normalized == 'plat' || normalized == 'plats') return RecipeCategory.plat;
-    if (normalized == 'dessert' || normalized == 'desserts') return RecipeCategory.dessert;
-    if (normalized == 'boisson' || normalized == 'boissons' || normalized == 'drink') return RecipeCategory.boisson;
-    
-    // Fallback sur enum names (avec normalisation)
+    if (normalized == 'plat' || normalized == 'plats')
+      return RecipeCategory.plat;
+    if (normalized == 'dessert' || normalized == 'desserts')
+      return RecipeCategory.dessert;
+    if (normalized == 'boisson' ||
+        normalized == 'boissons' ||
+        normalized == 'drink') return RecipeCategory.boisson;
+
     return RecipeCategory.values.firstWhere(
       (e) => normalize(e.name) == normalized,
       orElse: () => RecipeCategory.plat,
     );
   }
 
-  /// Essaie d'extraire un entier pour les portions
   static int? _parseServings(dynamic value) {
     if (value == null) return null;
     try {
       if (value is int) return value;
       if (value is double) return value.round();
-      final s = value.toString();
-      final match = RegExp(r"(\d+)").firstMatch(s);
+      final match = RegExp(r"(\d+)").firstMatch(value.toString());
       if (match != null) {
         return int.parse(match.group(1)!);
       }

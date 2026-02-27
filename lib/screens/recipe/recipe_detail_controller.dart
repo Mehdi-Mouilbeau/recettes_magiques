@@ -1,18 +1,64 @@
 import 'package:flutter/material.dart';
 import 'package:recette_magique/models/recipe_model.dart';
+import 'package:recette_magique/providers/recipe_provider.dart';
 
 class RecipeDetailController extends ChangeNotifier {
   final Recipe recipe;
+
+  late TextEditingController titleController;
+  late TextEditingController stepsController;
+  late TextEditingController preparationTimeController;
+  late TextEditingController cookingTimeController;
   final TextEditingController noteController;
 
+  bool _isEditing = false;
   int _people;
 
   RecipeDetailController({
     required this.recipe,
   })  : _people = (recipe.servings ?? 4).clamp(1, 24),
-        noteController = TextEditingController(text: recipe.note ?? '');
+        noteController = TextEditingController(text: recipe.note ?? '') {
+    titleController = TextEditingController(text: recipe.title);
+    stepsController =
+        TextEditingController(text: recipe.steps.join('\n'));
+    preparationTimeController =
+        TextEditingController(text: recipe.preparationTime ?? '');
+    cookingTimeController =
+        TextEditingController(text: recipe.cookingTime ?? '');
+  }
 
+  bool get isEditing => _isEditing;
   int get people => _people;
+
+  void toggleEditing() {
+    _isEditing = !_isEditing;
+    notifyListeners();
+  }
+
+  Future<bool> saveChanges(RecipeProvider provider) async {
+    if (recipe.id == null) return false;
+
+    final updatedSteps = stepsController.text
+        .split('\n')
+        .where((e) => e.trim().isNotEmpty)
+        .toList();
+
+    final updatedRecipe = recipe.copyWith(
+      title: titleController.text.trim(),
+      steps: updatedSteps,
+      preparationTime:
+          preparationTimeController.text.trim().isEmpty
+              ? null
+              : preparationTimeController.text.trim(),
+      cookingTime:
+          cookingTimeController.text.trim().isEmpty
+              ? null
+              : cookingTimeController.text.trim(),
+      updatedAt: DateTime.now(),
+    );
+
+    return await provider.updateRecipe(updatedRecipe);
+  }
 
   void incrementPeople() {
     _people = (_people + 1).clamp(1, 24);
@@ -27,7 +73,7 @@ class RecipeDetailController extends ChangeNotifier {
   String scaleIngredientLine(String line) {
     final basePeople = recipe.servings ?? 4;
     final ratio = _people / (basePeople <= 0 ? 1 : basePeople);
-    
+
     if (ratio == 1) return line;
 
     final fractionRegex = RegExp(r'(\d+)\s*/\s*(\d+)');
@@ -65,6 +111,10 @@ class RecipeDetailController extends ChangeNotifier {
 
   @override
   void dispose() {
+    titleController.dispose();
+    stepsController.dispose();
+    preparationTimeController.dispose();
+    cookingTimeController.dispose();
     noteController.dispose();
     super.dispose();
   }
