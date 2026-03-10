@@ -8,6 +8,9 @@ const admin = require("../config/admin");
 
 const { runImageGeneration } = require("../services/imageService");
 
+/**
+ * Génération à la création d'une recette
+ */
 exports.generateRecipeImageOnCreate = onDocumentCreated(
   {
     document: "recipes/{recipeId}",
@@ -26,8 +29,10 @@ exports.generateRecipeImageOnCreate = onDocumentCreated(
       const fresh = await tx.get(ref);
       const data = fresh.data() || {};
 
+      // PROTECTION ABSOLUE
       if (data.imageUrl && !data.imageIsPlaceholder) return { ok: false };
       if (data.imageStatus === "processing") return { ok: false };
+      if (data.imageStatus === "ready") return { ok: false };
 
       tx.set(
         ref,
@@ -48,10 +53,14 @@ exports.generateRecipeImageOnCreate = onDocumentCreated(
     if (!freshSnap.exists) return;
 
     const data = freshSnap.data() || {};
+
     await runImageGeneration({ snap, recipeId, data });
   },
 );
 
+/**
+ * Génération quand imageStatus passe à "queued"
+ */
 exports.generateRecipeImageOnQueued = onDocumentUpdated(
   {
     document: "recipes/{recipeId}",
@@ -70,8 +79,10 @@ exports.generateRecipeImageOnQueued = onDocumentUpdated(
 
     const queuedNow = afterData.imageStatus === "queued";
     const wasQueued = beforeData.imageStatus === "queued";
+
     const nonceChanged =
-      afterData.regenNonce && afterData.regenNonce !== beforeData.regenNonce;
+      afterData.regenNonce &&
+      afterData.regenNonce !== beforeData.regenNonce;
 
     if (!(queuedNow && (!wasQueued || nonceChanged))) return;
 
@@ -80,6 +91,7 @@ exports.generateRecipeImageOnQueued = onDocumentUpdated(
       const fresh = await tx.get(ref);
       const d = fresh.data() || {};
 
+      // PROTECTION ABSOLUE
       if (d.imageUrl && !d.imageIsPlaceholder) return { ok: false };
       if (d.imageStatus === "processing") return { ok: false };
       if (d.imageStatus !== "queued") return { ok: false };
@@ -100,6 +112,7 @@ exports.generateRecipeImageOnQueued = onDocumentUpdated(
     if (!locked?.ok) return;
 
     const data = (await after.ref.get()).data() || {};
+
     await runImageGeneration({ snap: after, recipeId, data });
   },
 );
